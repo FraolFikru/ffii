@@ -24,9 +24,9 @@ export const user = {
 };
 
 export const stats = [
-  { label: "Today's Revenue", value: 18420, note: "vs yesterday", change: 12.4, icon: "wallet" },
-  { label: "Total Orders", value: 142, note: "this week", change: 8.6, icon: "receipt" },
-  { label: "Food Cost %", value: 31.2, note: "target ≤ 30%", change: -1.8, icon: "trend-down" },
+  { label: "Today's Revenue", value: 18420, note: "vs yesterday", change: 12.4, icon: "wallet", unit: "ETB", lowerIsBetter: false },
+  { label: "Total Expense", value: 76900, note: "this month", change: 3.8, icon: "receipt", unit: "ETB", lowerIsBetter: true },
+  { label: "Profit Margin", value: 40.1, note: "target ≥ 35%", change: 2, icon: "trend-up", unit: "%", lowerIsBetter: false },
 ] as const;
 
 export const cashFlow: MonthPoint[] = [
@@ -53,6 +53,12 @@ export const paymentMethods = {
     account: "0912 345 678",
     spent: 12480,
     limit: 50000,
+    moneyIn: 64200,
+    activity: [
+      { label: "Dinner service payments", when: "Today", amount: 4850 },
+      { label: "Fresh Produce Supplier", when: "Yesterday", amount: -4250 },
+      { label: "Water Bill", when: "Oct 06", amount: -890 },
+    ],
   },
   cash: {
     id: "cash" as PaymentMethod,
@@ -62,6 +68,12 @@ export const paymentMethods = {
     account: "Drawer",
     spent: 3150,
     limit: 15000,
+    moneyIn: 21300,
+    activity: [
+      { label: "Lunch service cash", when: "Today", amount: 2300 },
+      { label: "Kitchen Supplies - Restock", when: "Yesterday", amount: -980 },
+      { label: "Menu Printing", when: "Oct 07", amount: -450 },
+    ],
   },
   cbe: {
     id: "cbe" as PaymentMethod,
@@ -71,6 +83,12 @@ export const paymentMethods = {
     account: "1000 1234 5678",
     spent: 42800,
     limit: 200000,
+    moneyIn: 182500,
+    activity: [
+      { label: "Daily sales deposit", when: "Today", amount: 18420 },
+      { label: "Monthly Rent - Bole", when: "Oct 03", amount: -25000 },
+      { label: "Staff Payroll - Week 44", when: "Oct 01", amount: -18700 },
+    ],
   },
 };
 
