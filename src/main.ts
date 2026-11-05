@@ -154,17 +154,17 @@ function renderDashboard(): string {
       <div class="stats">
         ${stats
           .map(
-            (s) => `
-          <article class="panel stat">
+            (s, i) => `
+          <article class="panel stat${i === 0 ? " glow" : ""}">
             <div class="stat-head">
               <span class="stat-icon">${icon(s.icon)}</span>
               <span>${s.label}</span>
               <button class="more" aria-label="More">${icon("dots-v")}</button>
             </div>
-            <div class="stat-value" data-count="${s.value}">${s.label.includes("%") ? "0%" : "ETB 0"}</div>
+            <div class="stat-value" data-count="${s.value}">${s.unit === "%" ? "0%" : "ETB 0"}</div>
             <div class="stat-foot">
               <span>${s.note}</span>
-              <span class="badge ${s.change >= 0 ? "up" : "down"}">${s.change >= 0 ? "+" : ""}${s.change}%</span>
+              <span class="badge ${(s.lowerIsBetter ? s.change <= 0 : s.change >= 0) ? "up" : "down"}">${s.change >= 0 ? "+" : ""}${s.change}%</span>
             </div>
           </article>`,
           )
@@ -189,7 +189,7 @@ function renderDashboard(): string {
       <article class="panel cards-panel" id="paymentPanel"></article>
     </section>
 
-    <article class="panel table-panel" style="margin-top:16px">
+    <article class="panel table-panel">
       <div class="panel-head">
         <h2>Recent Transactions</h2>
         <button class="btn" data-goto="Transactions">View all ${icon("arrow-right")}</button>
@@ -232,10 +232,10 @@ function renderAnalytics(): string {
         <div class="panel-head"><h2>Top Selling Dishes</h2></div>
         ${topDishes.map((d) => `
           <div class="dish-row">
-            <div style="flex:1">
+            <div class="grow">
               <strong>${d.name}</strong>
-              <div style="font-size:12px;color:var(--muted)">${d.sold} sold · ${usd(d.revenue)}</div>
-              <div class="progress-bar"><i style="width:${d.pct * 3}%;background:#22c55e"></i></div>
+              <div class="dish-meta">${d.sold} sold · ${usd(d.revenue)}</div>
+              <div class="progress-bar"><i style="width:${d.pct * 3}%;background:var(--revenue)"></i></div>
             </div>
             <span class="badge up">${d.pct}%</span>
           </div>`).join("")}
@@ -247,28 +247,28 @@ function renderAnalytics(): string {
           ${peakHours.map((p) => {
             const max = Math.max(...peakHours.map((x) => x.orders));
             const h = Math.round((p.orders / max) * 100);
-            return `<div><div class="bar" style="height:${h}%"></div><small>${p.hour}</small></div>`;
+            return `<div><div class="bar${p.orders === max ? " top" : ""}" style="height:${h}%"></div><small>${p.hour}</small></div>`;
           }).join("")}
         </div>
-        <p style="margin-top:16px;color:var(--muted);font-size:13px">Dinner service (19–20) is your strongest window. Consider staffing accordingly.</p>
+        <p class="note">Dinner service (19–20) is your strongest window. Consider staffing accordingly.</p>
       </article>
 
       <article class="panel">
         <div class="panel-head"><h2>Quick Insights</h2></div>
-        <div style="display:flex;flex-direction:column;gap:12px">
+        <div class="insight-list">
           <div class="report-card">
             <h3>Average Order Value</h3>
-            <strong style="font-size:22px">ETB 420</strong>
+            <strong class="insight-value">ETB 420</strong>
             <p>+8% vs last month</p>
           </div>
           <div class="report-card">
             <h3>Table Turnover</h3>
-            <strong style="font-size:22px">2.4×</strong>
+            <strong class="insight-value">2.4×</strong>
             <p>Per table during dinner</p>
           </div>
           <div class="report-card">
             <h3>Waste Rate</h3>
-            <strong style="font-size:22px;color:#f87171">4.1%</strong>
+            <strong class="insight-value bad">4.1%</strong>
             <p>Target: under 3%</p>
           </div>
         </div>
@@ -342,9 +342,9 @@ function renderBudgets(): string {
               <h2>${b.name}</h2>
               <span class="badge ${over ? "down" : "up"}">${pct}%</span>
             </div>
-            <div style="font-size:22px;font-weight:600;margin-bottom:4px">${usd(b.spent)}</div>
-            <div style="color:var(--muted);font-size:13px">of ${usd(b.allocated)} allocated</div>
-            <div class="progress-bar"><i style="width:${pct}%;background:${over ? "#ef4444" : b.color}"></i></div>
+            <div class="budget-amount">${usd(b.spent)}</div>
+            <div class="budget-of">of ${usd(b.allocated)} allocated</div>
+            <div class="progress-bar"><i style="width:${pct}%;background:${over ? "var(--expense)" : b.color}"></i></div>
           </article>`;
       }).join("")}
     </div>
@@ -361,14 +361,14 @@ function renderInvestments(): string {
         <div class="report-card">
           <h3>New Industrial Oven</h3>
           <p>Planned Q1 2027 · Est. ETB 185,000</p>
-          <div class="progress-bar"><i style="width:35%;background:#3b82f6"></i></div>
-          <small style="color:var(--muted)">35% funded from reserves</small>
+          <div class="progress-bar"><i style="width:35%;background:var(--info)"></i></div>
+          <small>35% funded from reserves</small>
         </div>
-        <div class="report-card" style="margin-top:12px">
+        <div class="report-card">
           <h3>POS Terminal Upgrade</h3>
           <p>3 new terminals · ETB 42,000</p>
-          <div class="progress-bar"><i style="width:80%;background:#22c55e"></i></div>
-          <small style="color:var(--muted)">Almost ready</small>
+          <div class="progress-bar"><i style="width:80%;background:var(--revenue)"></i></div>
+          <small>Almost ready</small>
         </div>
       </article>
       <article class="panel">
@@ -376,12 +376,12 @@ function renderInvestments(): string {
         <div class="report-card">
           <h3>Second Branch – CMC</h3>
           <p>Feasibility study complete. Target open date: mid-2027.</p>
-          <strong style="font-size:18px;margin-top:8px;display:block">ETB 1.2M projected</strong>
+          <strong class="projection">ETB 1.2M projected</strong>
         </div>
-        <div class="report-card" style="margin-top:12px">
+        <div class="report-card">
           <h3>Delivery Fleet</h3>
           <p>2 motorcycles + branded boxes</p>
-          <div class="progress-bar"><i style="width:60%;background:#a855f7"></i></div>
+          <div class="progress-bar"><i style="width:60%;background:var(--accent)"></i></div>
         </div>
       </article>
     </div>
@@ -392,20 +392,20 @@ function renderInvestments(): string {
 
 function renderGoals(): string {
   return `
-    <div class="page-grid" style="grid-template-columns:1fr">
+    <div class="page-grid single">
       ${goals.map((g) => {
         const pct = Math.min(100, Math.round((g.current / g.target) * 100));
         return `
           <div class="goal-card">
-            <div style="display:flex;justify-content:space-between;align-items:center">
+            <div class="goal-top">
               <strong>${g.title}</strong>
-              <span style="color:var(--muted);font-size:12px">Due ${g.deadline}</span>
+              <span class="goal-due">Due ${g.deadline}</span>
             </div>
-            <div style="font-size:24px;font-weight:600;margin:8px 0">
+            <div class="goal-value">
               ${g.unit === "%" || g.unit === "★" ? g.current : usd(g.current)}
-              <span style="font-size:14px;color:var(--muted);font-weight:400"> / ${g.unit === "%" || g.unit === "★" ? g.target + g.unit : usd(g.target)}</span>
+              <small> / ${g.unit === "%" || g.unit === "★" ? g.target + g.unit : usd(g.target)}</small>
             </div>
-            <div class="progress-bar"><i style="width:${pct}%;background:${pct >= 90 ? "#22c55e" : "#3b82f6"}"></i></div>
+            <div class="progress-bar"><i style="width:${pct}%;background:${pct >= 90 ? "var(--revenue)" : "var(--accent)"}"></i></div>
           </div>`;
       }).join("")}
     </div>
@@ -420,32 +420,32 @@ function renderReports(): string {
       <div class="report-card">
         <h3>Daily Sales Report</h3>
         <p>Revenue, orders, average ticket, payment mix for any day.</p>
-        <button class="btn" style="margin-top:10px;width:fit-content">Generate ${icon("arrow-right")}</button>
+        <button class="btn">Generate ${icon("arrow-right")}</button>
       </div>
       <div class="report-card">
         <h3>Weekly P&amp;L</h3>
         <p>Profit &amp; loss with food cost, labor and overhead breakdown.</p>
-        <button class="btn" style="margin-top:10px;width:fit-content">Generate ${icon("arrow-right")}</button>
+        <button class="btn">Generate ${icon("arrow-right")}</button>
       </div>
       <div class="report-card">
         <h3>Monthly Tax Summary</h3>
         <p>VAT, withholding and income tax ready for accountant.</p>
-        <button class="btn" style="margin-top:10px;width:fit-content">Generate ${icon("arrow-right")}</button>
+        <button class="btn">Generate ${icon("arrow-right")}</button>
       </div>
       <div class="report-card">
         <h3>Inventory Valuation</h3>
         <p>Current stock value and variance vs last count.</p>
-        <button class="btn" style="margin-top:10px;width:fit-content">Generate ${icon("arrow-right")}</button>
+        <button class="btn">Generate ${icon("arrow-right")}</button>
       </div>
       <div class="report-card">
         <h3>Staff Hours &amp; Cost</h3>
         <p>Hours worked, overtime and labor cost % of sales.</p>
-        <button class="btn" style="margin-top:10px;width:fit-content">Generate ${icon("arrow-right")}</button>
+        <button class="btn">Generate ${icon("arrow-right")}</button>
       </div>
       <div class="report-card">
         <h3>Menu Performance</h3>
         <p>Contribution margin and popularity of every dish.</p>
-        <button class="btn" style="margin-top:10px;width:fit-content">Generate ${icon("arrow-right")}</button>
+        <button class="btn">Generate ${icon("arrow-right")}</button>
       </div>
     </div>
   `;
@@ -526,22 +526,25 @@ function renderPage(): void {
 
 function renderPayment(): void {
   const pm = paymentMethods[state.payment];
+  const net = pm.moneyIn - pm.spent;
+  const inPct = Math.round((pm.moneyIn / (pm.moneyIn + pm.spent)) * 100);
   const panel = document.querySelector("#paymentPanel");
   if (!panel) return;
 
   const themes: Record<PaymentMethod, { gradient: string }> = {
-    telebirr: { gradient: "linear-gradient(145deg, #0f3d2e 0%, #1a5c45 40%, #0d2f24 100%)" },
-    cash: { gradient: "linear-gradient(145deg, #2a2c2e 0%, #3a3d40 50%, #1f2123 100%)" },
-    cbe: { gradient: "linear-gradient(145deg, #0c2d4a 0%, #164e7a 40%, #0a2238 100%)" },
+    telebirr: { gradient: "linear-gradient(145deg, #0e4a35 0%, #1f7a58 45%, #0b3626 100%)" },
+    cash: { gradient: "linear-gradient(145deg, #3a3029 0%, #5a4a3c 50%, #2a221c 100%)" },
+    cbe: { gradient: "linear-gradient(145deg, #4a1d5c 0%, #7a2d86 45%, #34123f 100%)" },
   };
 
   panel.innerHTML = `
     <div class="panel-head"><h2>Payment Methods</h2></div>
     <div class="payment-switch">
       ${(["telebirr", "cash", "cbe"] as PaymentMethod[])
-        .map((key) => `<button data-payment="${key}" class="${key === state.payment ? "active" : ""}">${paymentMethods[key].name}</button>`)
+        .map((key) => `<button data-payment="${key}" class="glow ${key === state.payment ? "active" : ""}">${paymentMethods[key].name}</button>`)
         .join("")}
     </div>
+    <div class="pv-wrap glow" data-method="${state.payment}">
     <div class="payment-visual" style="background:${themes[state.payment].gradient}">
       <div class="pv-top">
         <span class="pv-brand">${pm.name}</span>
@@ -556,21 +559,39 @@ function renderPayment(): void {
         <div class="pv-change ${pm.change >= 0 ? "up" : "down"}">${pm.change >= 0 ? "+" : ""}${pm.change}%</div>
       </div>
     </div>
-    <div class="panel-head spend-head"><h3>Spending this month</h3></div>
-    <div class="spend-value">
-      <strong>${usd(pm.spent)}</strong>
-      <small>of ${usd(pm.limit)} limit</small>
     </div>
-    <div class="meter" id="meter"></div>
-    <div class="limit">Monthly Limit: <strong>${usd(pm.limit)}</strong></div>
+    <div class="pm-side">
+      <div class="flow">
+        <div class="flow-head">
+          <h3>This month</h3>
+          <span class="flow-net ${net >= 0 ? "up" : "down"}">Net ${net >= 0 ? "+" : "-"}${usd(Math.abs(net))}</span>
+        </div>
+        <div class="flow-nums">
+          <div><small>Money in</small><strong class="in">${usd(pm.moneyIn)}</strong></div>
+          <div><small>Money out</small><strong class="out">${usd(pm.spent)}</strong></div>
+        </div>
+        <div class="flow-bar" aria-hidden="true">
+          <i class="in" style="width:${inPct}%"></i>
+          <i class="out" style="width:${100 - inPct}%"></i>
+        </div>
+      </div>
+      <div class="panel-head activity-head"><h3>Latest activity (ETB)</h3></div>
+      <ul class="activity">
+        ${pm.activity
+          .map(
+            (a) => `
+          <li>
+            <span class="act-icon ${a.amount >= 0 ? "in" : "out"}">${icon(a.amount >= 0 ? "arrow-down-left" : "arrow-up-right")}</span>
+            <span class="act-text"><strong>${escapeHtml(a.label)}</strong><small>${a.when}</small></span>
+            <span class="act-amount ${a.amount >= 0 ? "in" : "out"}">${a.amount >= 0 ? "+" : "-"}${Math.abs(a.amount).toLocaleString("en-US")}</span>
+          </li>`,
+          )
+          .join("")}
+      </ul>
+    </div>
   `;
 
-  const meter = panel.querySelector("#meter");
-  if (meter) {
-    const bars = 30;
-    const filled = Math.round((pm.spent / pm.limit) * bars);
-    meter.innerHTML = Array.from({ length: bars }, (_, i) => `<span class="${i < filled ? "on" : ""}" style="--d:${i * 20}ms"></span>`).join("");
-  }
+  updateGlow();
 }
 
 /* ---------- counters ---------- */
@@ -648,9 +669,9 @@ function renderChart(): void {
   svg.innerHTML = `
     <defs>
       <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="#22c55e" stop-opacity="0.45"/>
-        <stop offset="55%" stop-color="#22c55e" stop-opacity="0.12"/>
-        <stop offset="100%" stop-color="#22c55e" stop-opacity="0"/>
+        <stop offset="0%" style="stop-color:var(--revenue)" stop-opacity="0.35"/>
+        <stop offset="55%" style="stop-color:var(--revenue)" stop-opacity="0.1"/>
+        <stop offset="100%" style="stop-color:var(--revenue)" stop-opacity="0"/>
       </linearGradient>
       <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
         <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
@@ -670,7 +691,7 @@ function renderChart(): void {
     ${data.map((d, i) => (W < 520 && i % 2 ? "" : `<text x="${x(i)}" y="${H - 10}" class="axis" text-anchor="middle">${d.month}</text>`)).join("")}
     <path d="${areaPath}" fill="url(#areaGrad)"/>
     <path d="${expensesPath}" class="line-exp" fill="none" filter="url(#glowRed)"/>
-    <path d="${revenuePath}" class="line-inc" fill="none" filter="url(#glow)"/>
+    <path d="${revenuePath}" class="line-inc" pathLength="1" fill="none" filter="url(#glow)"/>
     <line id="cursor" class="cursor" y1="${pad.top}" y2="${pad.top + ih}" visibility="hidden"/>
     <circle id="dotInc" r="5.5" class="dot-inc" visibility="hidden"/>
     <circle id="dotExp" r="4.5" class="dot-exp" visibility="hidden"/>
@@ -700,7 +721,7 @@ function renderChart(): void {
       <div class="tt-row"><i class="sw exp"></i>Expenses <b>${usd(d.expenses)}</b></div>
       <div class="tt-row" style="margin-top:8px;padding-top:6px;border-top:1px solid var(--border)">
         <span style="color:var(--muted);font-size:11px">Net</span>
-        <b style="color:${d.revenue - d.expenses >= 0 ? "#22c55e" : "#ef4444"}">${usd(d.revenue - d.expenses)}</b>
+        <b style="color:${d.revenue - d.expenses >= 0 ? "var(--revenue)" : "var(--expense)"}">${usd(d.revenue - d.expenses)}</b>
       </div>`;
     tip.hidden = false;
     const tw = tip.offsetWidth;
@@ -755,7 +776,7 @@ function renderTable(): void {
       <tr class="${state.selected.has(t.id) ? "selected" : ""}">
         <td><input type="checkbox" data-id="${t.id}" ${state.selected.has(t.id) ? "checked" : ""}/></td>
         <td class="mono">${t.id}</td>
-        <td><span class="merchant"><span class="m-icon" style="background:${bg};color:#fff">${escapeHtml(t.description[0])}</span>${escapeHtml(t.description)}</span></td>
+        <td><span class="merchant"><span class="m-icon" style="background:${bg}">${escapeHtml(t.description[0])}</span>${escapeHtml(t.description)}</span></td>
         <td><span class="cat"><i style="background:${bg}"></i>${t.category}</span></td>
         <td>${fmtDate(t.date)}</td>
         <td class="mono">${usd(Math.abs(t.amount))}</td>
@@ -824,6 +845,46 @@ function bindTableEvents(): void {
   });
 }
 
+/* ---------- cursor glow ---------- */
+
+// Elements with the "glow" class light up as the cursor gets near them,
+// even before it touches them. CSS reads --gx / --gy (cursor position
+// relative to the element) and --gi (0 to 1 intensity).
+const pointer = { x: -9999, y: -9999 };
+const GLOW_RANGE = 220;
+
+function updateGlow(): void {
+  document.querySelectorAll<HTMLElement>(".glow").forEach((el) => {
+    const r = el.getBoundingClientRect();
+    const dx = Math.max(r.left - pointer.x, 0, pointer.x - r.right);
+    const dy = Math.max(r.top - pointer.y, 0, pointer.y - r.bottom);
+    const pad = el.tagName === "BUTTON" ? 36 : 48;
+    const gx = Math.min(Math.max(pointer.x - r.left, -pad), r.width + pad);
+    const gy = Math.min(Math.max(pointer.y - r.top, -pad), r.height + pad);
+    el.style.setProperty("--gx", `${gx}px`);
+    el.style.setProperty("--gy", `${gy}px`);
+    el.style.setProperty("--gi", String(Math.max(0, 1 - Math.hypot(dx, dy) / GLOW_RANGE)));
+  });
+}
+
+function initGlow(): void {
+  let frame = 0;
+  document.addEventListener("pointermove", (e) => {
+    pointer.x = e.clientX;
+    pointer.y = e.clientY;
+    if (frame) return;
+    frame = requestAnimationFrame(() => {
+      frame = 0;
+      updateGlow();
+    });
+  });
+  document.documentElement.addEventListener("mouseleave", () => {
+    pointer.x = -9999;
+    pointer.y = -9999;
+    updateGlow();
+  });
+}
+
 /* ---------- theme ---------- */
 
 function applyTheme(theme: State["theme"]): void {
@@ -887,6 +948,7 @@ function init(): void {
   }
   applyTheme(saved === "light" ? "light" : "dark");
   bindEvents();
+  initGlow();
   renderPage();
 }
 
