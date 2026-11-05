@@ -1,6 +1,8 @@
 export type Status = "Success" | "Pending" | "Failed";
 export type Category = "Food Cost" | "Labor" | "Utilities" | "Rent" | "Marketing" | "Supplies";
 export type PaymentMethod = "telebirr" | "cash" | "cbe";
+/** "Today" / "Yesterday" are translated; a Date is formatted in the active language. */
+export type When = "Today" | "Yesterday" | Date;
 
 export interface Transaction {
   id: string;
@@ -17,17 +19,33 @@ export interface MonthPoint {
   expenses: number;
 }
 
+export interface PaymentInfo {
+  id: PaymentMethod;
+  name: string;
+  balance: number;
+  change: number;
+  account: string;
+  spent: number;
+  limit: number;
+  moneyIn: number;
+  activity: { label: string; when: When; amount: number }[];
+}
+
+export interface Stat {
+  label: string;
+  value: number;
+  note: string;
+  change: number;
+  icon: string;
+  unit: "ETB" | "%";
+  lowerIsBetter: boolean;
+}
+
 export const user = {
   name: "Abebe Kebede",
   email: "owner@bistroaddis.com",
   restaurant: "Bistro Addis",
 };
-
-export const stats = [
-  { label: "Today's Revenue", value: 18420, note: "vs yesterday", change: 12.4, icon: "wallet", unit: "ETB", lowerIsBetter: false },
-  { label: "Total Expense", value: 76900, note: "this month", change: 3.8, icon: "receipt", unit: "ETB", lowerIsBetter: true },
-  { label: "Profit Margin", value: 40.1, note: "target ≥ 35%", change: 2, icon: "trend-up", unit: "%", lowerIsBetter: false },
-] as const;
 
 export const cashFlow: MonthPoint[] = [
   { month: "Jan", revenue: 87000, expenses: 62500 },
@@ -44,9 +62,15 @@ export const cashFlow: MonthPoint[] = [
   { month: "Dec", revenue: 132000, expenses: 81200 },
 ];
 
-export const paymentMethods = {
+/** Typical takings by weekday (index 0 = Sunday), used for the Daily chart. */
+export const dailyPattern = {
+  revenue: [5200, 3400, 3600, 3900, 4100, 4900, 5600],
+  expenses: [2900, 2300, 2400, 2500, 2600, 2800, 3100],
+};
+
+export const paymentMethods: Record<PaymentMethod, PaymentInfo> = {
   telebirr: {
-    id: "telebirr" as PaymentMethod,
+    id: "telebirr",
     name: "Telebirr",
     balance: 28450.75,
     change: 5.2,
@@ -57,11 +81,11 @@ export const paymentMethods = {
     activity: [
       { label: "Dinner service payments", when: "Today", amount: 4850 },
       { label: "Fresh Produce Supplier", when: "Yesterday", amount: -4250 },
-      { label: "Water Bill", when: "Oct 06", amount: -890 },
+      { label: "Water Bill", when: new Date(2026, 9, 6), amount: -890 },
     ],
   },
   cash: {
-    id: "cash" as PaymentMethod,
+    id: "cash",
     name: "Cash",
     balance: 8200,
     change: -2.1,
@@ -72,11 +96,11 @@ export const paymentMethods = {
     activity: [
       { label: "Lunch service cash", when: "Today", amount: 2300 },
       { label: "Kitchen Supplies - Restock", when: "Yesterday", amount: -980 },
-      { label: "Menu Printing", when: "Oct 07", amount: -450 },
+      { label: "Menu Printing", when: new Date(2026, 9, 7), amount: -450 },
     ],
   },
   cbe: {
-    id: "cbe" as PaymentMethod,
+    id: "cbe",
     name: "CBE",
     balance: 186400.2,
     change: 9.4,
@@ -86,11 +110,30 @@ export const paymentMethods = {
     moneyIn: 182500,
     activity: [
       { label: "Daily sales deposit", when: "Today", amount: 18420 },
-      { label: "Monthly Rent - Bole", when: "Oct 03", amount: -25000 },
-      { label: "Staff Payroll - Week 44", when: "Oct 01", amount: -18700 },
+      { label: "Monthly Rent - Bole", when: new Date(2026, 9, 3), amount: -25000 },
+      { label: "Staff Payroll - Week 44", when: new Date(2026, 9, 1), amount: -18700 },
     ],
   },
 };
+
+/* ---------- headline metrics (derived, so the cards always agree with the data) ---------- */
+
+const round1 = (n: number): number => Math.round(n * 10) / 10;
+const pctChange = (now: number, before: number): number => round1(((now - before) / before) * 100);
+const margin = (p: MonthPoint): number => ((p.revenue - p.expenses) / p.revenue) * 100;
+
+const current = cashFlow[9]; // October — latest closed month
+const previous = cashFlow[8];
+const totalBalance = Math.round(Object.values(paymentMethods).reduce((s, p) => s + p.balance, 0) * 100) / 100;
+
+export const stats: Stat[] = [
+  { label: "Total Balance", value: totalBalance, note: "across 3 accounts", change: 6.8, icon: "wallet", unit: "ETB", lowerIsBetter: false },
+  { label: "Total Revenue", value: current.revenue, note: "this month", change: pctChange(current.revenue, previous.revenue), icon: "trend-up", unit: "ETB", lowerIsBetter: false },
+  { label: "Total Expense", value: current.expenses, note: "this month", change: pctChange(current.expenses, previous.expenses), icon: "receipt", unit: "ETB", lowerIsBetter: true },
+  { label: "Profit Margin", value: round1(margin(current)), note: "target ≥ 35%", change: round1(margin(current) - margin(previous)), icon: "percent", unit: "%", lowerIsBetter: false },
+];
+
+/* ---------- transactions ---------- */
 
 const merchants: { description: string; category: Category; amount: number }[] = [
   { description: "Fresh Produce Supplier", category: "Food Cost", amount: 4250 },
@@ -121,15 +164,16 @@ export const transactions: Transaction[] = Array.from({ length: 50 }, (_, i) => 
 });
 
 export const categoryColor: Record<Category, string> = {
-  "Food Cost": "#8ccf6e",
-  Labor: "#7aa9e6",
-  Utilities: "#f2b035",
+  "Food Cost": "#7fcf8f",
+  Labor: "#7fa3e0",
+  Utilities: "#e07fae",
   Rent: "#ec5f48",
-  Marketing: "#c58ae8",
+  Marketing: "#b18ae8",
   Supplies: "#4fc6b0",
 };
 
-// Analytics mock data
+/* ---------- analytics ---------- */
+
 export const topDishes = [
   { name: "Kitfo Special", sold: 186, revenue: 37200, pct: 22 },
   { name: "Doro Wat", sold: 142, revenue: 28400, pct: 17 },
@@ -147,19 +191,21 @@ export const peakHours = [
   { hour: "20–21", orders: 44 },
 ];
 
-// Budgets
-export const budgets = [
-  { name: "Food Cost", allocated: 35000, spent: 31240, color: "#8ccf6e" },
-  { name: "Labor", allocated: 42000, spent: 38900, color: "#7aa9e6" },
-  { name: "Utilities", allocated: 8000, spent: 6450, color: "#f2b035" },
-  { name: "Marketing", allocated: 5000, spent: 3200, color: "#c58ae8" },
-  { name: "Supplies", allocated: 4000, spent: 2850, color: "#4fc6b0" },
+/* ---------- budgets ---------- */
+
+export const budgets: { name: Category; allocated: number; spent: number }[] = [
+  { name: "Food Cost", allocated: 35000, spent: 31240 },
+  { name: "Labor", allocated: 42000, spent: 38900 },
+  { name: "Utilities", allocated: 8000, spent: 6450 },
+  { name: "Marketing", allocated: 5000, spent: 3200 },
+  { name: "Supplies", allocated: 4000, spent: 2850 },
 ];
 
-// Goals
-export const goals = [
-  { title: "Monthly Revenue Target", current: 128400, target: 150000, unit: "ETB", deadline: "Nov 30" },
-  { title: "Food Cost under 30%", current: 31.2, target: 30, unit: "%", deadline: "Dec 15" },
-  { title: "Average Order Value", current: 420, target: 480, unit: "ETB", deadline: "Dec 31" },
-  { title: "Customer Reviews (4.5+)", current: 4.3, target: 4.5, unit: "★", deadline: "Ongoing" },
+/* ---------- goals ---------- */
+
+export const goals: { title: string; current: number; target: number; unit: "ETB" | "%" | "★"; deadline: Date | null; lowerIsBetter?: boolean }[] = [
+  { title: "Monthly Revenue Target", current: 128400, target: 150000, unit: "ETB", deadline: new Date(2026, 10, 30) },
+  { title: "Food Cost under 30%", current: 31.2, target: 30, unit: "%", deadline: new Date(2026, 11, 15), lowerIsBetter: true },
+  { title: "Average Order Value", current: 420, target: 480, unit: "ETB", deadline: new Date(2026, 11, 31) },
+  { title: "Customer Reviews (4.5+)", current: 4.3, target: 4.5, unit: "★", deadline: null },
 ];
