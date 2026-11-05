@@ -233,13 +233,13 @@ function renderPayment(): void {
 
   const themes: Record<PaymentMethod, { gradient: string }> = {
     telebirr: {
-      gradient: "linear-gradient(135deg, #0f3d2e 0%, #1a5c45 45%, #0d2f24 100%)",
+      gradient: "linear-gradient(145deg, #0f3d2e 0%, #1a5c45 40%, #0d2f24 100%)",
     },
     cash: {
-      gradient: "linear-gradient(135deg, #2a2c2e 0%, #3a3d40 50%, #1f2123 100%)",
+      gradient: "linear-gradient(145deg, #2a2c2e 0%, #3a3d40 50%, #1f2123 100%)",
     },
     cbe: {
-      gradient: "linear-gradient(135deg, #0c2d4a 0%, #164e7a 45%, #0a2238 100%)",
+      gradient: "linear-gradient(145deg, #0c2d4a 0%, #164e7a 40%, #0a2238 100%)",
     },
   };
 
@@ -321,6 +321,7 @@ function seriesFor(range: Range): MonthPoint[] {
       expenses: 950 + Math.round(Math.cos(i * 0.7) * 250 + i * 30),
     }));
   }
+  // Daily
   const labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
   return labels.map((month, i) => ({
     month,
@@ -330,7 +331,7 @@ function seriesFor(range: Range): MonthPoint[] {
 }
 
 const niceMax = (v: number): number => {
-  const step = Math.pow(10, Math.floor(Math.log10(v)));
+  const step = Math.pow(10, Math.floor(Math.log10(v || 1)));
   return Math.ceil(v / (step / 2)) * (step / 2);
 };
 
@@ -342,19 +343,20 @@ function renderChart(): void {
 
   const W = wrap.clientWidth;
   const H = wrap.clientHeight;
-  const pad = { top: 12, right: 12, bottom: 30, left: 44 };
+  const pad = { top: 18, right: 16, bottom: 32, left: 48 };
   const iw = W - pad.left - pad.right;
   const ih = H - pad.top - pad.bottom;
 
-  const max = niceMax(Math.max(...data.flatMap((d) => [d.revenue, d.expenses])) * 1.1);
+  const max = niceMax(Math.max(...data.flatMap((d) => [d.revenue, d.expenses])) * 1.15);
   const ticks = 5;
-  const x = (i: number): number => pad.left + (iw * i) / (data.length - 1);
+  const x = (i: number): number => pad.left + (iw * i) / Math.max(data.length - 1, 1);
   const y = (v: number): number => pad.top + ih - (v / max) * ih;
 
   const stepPath = (key: "revenue" | "expenses"): string =>
     data.map((d, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(d[key]).toFixed(1)}`).join(" ");
 
   const revenuePath = stepPath("revenue");
+  const expensesPath = stepPath("expenses");
   const areaPath = `${revenuePath} L${x(data.length - 1)},${pad.top + ih} L${x(0)},${pad.top + ih} Z`;
   const fmtTick = (v: number): string => (v >= 1000 ? `$${(v / 1000).toFixed(1)}K` : `$${v}`);
 
@@ -362,28 +364,51 @@ function renderChart(): void {
   svg.innerHTML = `
     <defs>
       <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="#22c55e" stop-opacity="0.35"/>
+        <stop offset="0%" stop-color="#22c55e" stop-opacity="0.45"/>
+        <stop offset="55%" stop-color="#22c55e" stop-opacity="0.12"/>
         <stop offset="100%" stop-color="#22c55e" stop-opacity="0"/>
       </linearGradient>
-      <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-        <feGaussianBlur stdDeviation="3.5" result="coloredBlur"/>
+
+      <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+        <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+        <feMerge>
+          <feMergeNode in="coloredBlur"/>
+          <feMergeNode in="SourceGraphic"/>
+        </feMerge>
+      </filter>
+
+      <filter id="glowRed" x="-20%" y="-20%" width="140%" height="140%">
+        <feGaussianBlur stdDeviation="2.5" result="coloredBlur"/>
         <feMerge>
           <feMergeNode in="coloredBlur"/>
           <feMergeNode in="SourceGraphic"/>
         </feMerge>
       </filter>
     </defs>
+
     ${Array.from({ length: ticks + 1 }, (_, i) => {
       const v = (max / ticks) * i;
-      return `<text x="${pad.left - 10}" y="${y(v) + 4}" class="axis" text-anchor="end">${fmtTick(v)}</text>`;
+      const yy = y(v);
+      return `
+        <line x1="${pad.left}" y1="${yy}" x2="${W - pad.right}" y2="${yy}" stroke="var(--border)" stroke-width="1" stroke-dasharray="4 4" opacity="0.6"/>
+        <text x="${pad.left - 10}" y="${yy + 4}" class="axis" text-anchor="end">${fmtTick(v)}</text>
+      `;
     }).join("")}
-    ${data.map((d, i) => (W < 520 && i % 2 ? "" : `<text x="${x(i)}" y="${H - 8}" class="axis" text-anchor="middle">${d.month}</text>`)).join("")}
+
+    ${data
+      .map((d, i) => {
+        if (W < 520 && i % 2) return "";
+        return `<text x="${x(i)}" y="${H - 10}" class="axis" text-anchor="middle">${d.month}</text>`;
+      })
+      .join("")}
+
     <path d="${areaPath}" fill="url(#areaGrad)"/>
-    <path d="${stepPath("expenses")}" class="line-exp" fill="none"/>
+    <path d="${expensesPath}" class="line-exp" fill="none" filter="url(#glowRed)"/>
     <path d="${revenuePath}" class="line-inc" fill="none" filter="url(#glow)"/>
+
     <line id="cursor" class="cursor" y1="${pad.top}" y2="${pad.top + ih}" visibility="hidden"/>
-    <circle id="dotInc" r="6" class="dot-inc" visibility="hidden"/>
-    <circle id="dotExp" r="4" class="dot-exp" visibility="hidden"/>
+    <circle id="dotInc" r="5.5" class="dot-inc" visibility="hidden"/>
+    <circle id="dotExp" r="4.5" class="dot-exp" visibility="hidden"/>
     <rect x="${pad.left}" y="${pad.top}" width="${iw}" height="${ih}" fill="transparent" id="hit"/>
   `;
 
@@ -406,13 +431,17 @@ function renderChart(): void {
     const label = state.range === "Monthly" ? `${fullMonth(d.month)} 2026` : d.month;
     tooltip.innerHTML = `
       <div class="tt-title">${label.toUpperCase()}</div>
-      <div class="tt-row"><i class="sw inc"></i>Total Revenue<b>${usd(d.revenue, 0)}</b></div>
-      <div class="tt-row"><i class="sw exp"></i>Total Expenses<b>${usd(d.expenses, 0)}</b></div>`;
+      <div class="tt-row"><i class="sw inc"></i>Revenue <b>${usd(d.revenue, 0)}</b></div>
+      <div class="tt-row"><i class="sw exp"></i>Expenses <b>${usd(d.expenses, 0)}</b></div>
+      <div class="tt-row" style="margin-top:8px;padding-top:6px;border-top:1px solid var(--border)">
+        <span style="color:var(--muted);font-size:11px">Net</span>
+        <b style="color:${d.revenue - d.expenses >= 0 ? "#22c55e" : "#ef4444"}">${usd(d.revenue - d.expenses, 0)}</b>
+      </div>`;
     tooltip.hidden = false;
     const tw = tooltip.offsetWidth;
     const left = Math.max(0, cx + 16 + tw > W ? cx - tw - 16 : cx + 16);
     tooltip.style.left = `${left}px`;
-    tooltip.style.top = `${Math.max(4, y(Math.max(d.revenue, d.expenses)) - 30)}px`;
+    tooltip.style.top = `${Math.max(8, y(Math.max(d.revenue, d.expenses)) - 40)}px`;
   };
 
   const hide = (): void => {
@@ -429,6 +458,8 @@ function renderChart(): void {
   hit.addEventListener("pointerleave", hide);
 
   if (state.range === "Monthly") show(5);
+  else if (state.range === "Weekly") show(3);
+  else show(2);
 }
 
 const fullMonth = (m: string): string =>
@@ -529,7 +560,6 @@ function bindEvents(): void {
     renderChart();
   });
 
-  // Payment method switcher
   $("#paymentPanel").addEventListener("click", (e) => {
     const btn = (e.target as HTMLElement).closest<HTMLButtonElement>("[data-payment]");
     if (!btn) return;
