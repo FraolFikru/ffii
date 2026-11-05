@@ -24,9 +24,9 @@ export const user = {
 };
 
 export const stats = [
-  { label: "Today's Revenue", value: 18420, note: "vs yesterday", change: 12.4, icon: "wallet" },
-  { label: "Total Orders", value: 142, note: "this week", change: 8.6, icon: "receipt" },
-  { label: "Food Cost %", value: 31.2, note: "target ≤ 30%", change: -1.8, icon: "trend-down" },
+  { label: "Today's Revenue", value: 18420, note: "vs yesterday", change: 12.4, icon: "wallet", unit: "ETB", lowerIsBetter: false },
+  { label: "Total Expense", value: 76900, note: "this month", change: 3.8, icon: "receipt", unit: "ETB", lowerIsBetter: true },
+  { label: "Profit Margin", value: 40.1, note: "target ≥ 35%", change: 2, icon: "trend-up", unit: "%", lowerIsBetter: false },
 ] as const;
 
 export const cashFlow: MonthPoint[] = [
@@ -53,6 +53,12 @@ export const paymentMethods = {
     account: "0912 345 678",
     spent: 12480,
     limit: 50000,
+    moneyIn: 64200,
+    activity: [
+      { label: "Dinner service payments", when: "Today", amount: 4850 },
+      { label: "Fresh Produce Supplier", when: "Yesterday", amount: -4250 },
+      { label: "Water Bill", when: "Oct 06", amount: -890 },
+    ],
   },
   cash: {
     id: "cash" as PaymentMethod,
@@ -62,6 +68,12 @@ export const paymentMethods = {
     account: "Drawer",
     spent: 3150,
     limit: 15000,
+    moneyIn: 21300,
+    activity: [
+      { label: "Lunch service cash", when: "Today", amount: 2300 },
+      { label: "Kitchen Supplies - Restock", when: "Yesterday", amount: -980 },
+      { label: "Menu Printing", when: "Oct 07", amount: -450 },
+    ],
   },
   cbe: {
     id: "cbe" as PaymentMethod,
@@ -71,6 +83,12 @@ export const paymentMethods = {
     account: "1000 1234 5678",
     spent: 42800,
     limit: 200000,
+    moneyIn: 182500,
+    activity: [
+      { label: "Daily sales deposit", when: "Today", amount: 18420 },
+      { label: "Monthly Rent - Bole", when: "Oct 03", amount: -25000 },
+      { label: "Staff Payroll - Week 44", when: "Oct 01", amount: -18700 },
+    ],
   },
 };
 
@@ -103,12 +121,12 @@ export const transactions: Transaction[] = Array.from({ length: 50 }, (_, i) => 
 });
 
 export const categoryColor: Record<Category, string> = {
-  "Food Cost": "#22c55e",
-  Labor: "#3b82f6",
-  Utilities: "#f59e0b",
-  Rent: "#ef4444",
-  Marketing: "#a855f7",
-  Supplies: "#14b8a6",
+  "Food Cost": "#8ccf6e",
+  Labor: "#7aa9e6",
+  Utilities: "#f2b035",
+  Rent: "#ec5f48",
+  Marketing: "#c58ae8",
+  Supplies: "#4fc6b0",
 };
 
 // Analytics mock data
@@ -131,11 +149,11 @@ export const peakHours = [
 
 // Budgets
 export const budgets = [
-  { name: "Food Cost", allocated: 35000, spent: 31240, color: "#22c55e" },
-  { name: "Labor", allocated: 42000, spent: 38900, color: "#3b82f6" },
-  { name: "Utilities", allocated: 8000, spent: 6450, color: "#f59e0b" },
-  { name: "Marketing", allocated: 5000, spent: 3200, color: "#a855f7" },
-  { name: "Supplies", allocated: 4000, spent: 2850, color: "#14b8a6" },
+  { name: "Food Cost", allocated: 35000, spent: 31240, color: "#8ccf6e" },
+  { name: "Labor", allocated: 42000, spent: 38900, color: "#7aa9e6" },
+  { name: "Utilities", allocated: 8000, spent: 6450, color: "#f2b035" },
+  { name: "Marketing", allocated: 5000, spent: 3200, color: "#c58ae8" },
+  { name: "Supplies", allocated: 4000, spent: 2850, color: "#4fc6b0" },
 ];
 
 // Goals
