@@ -108,4 +108,4 @@ export const categoryColor: Record<Category, string> = {
   Shopping: "#3b82f6",
   Utilities: "#ef4444",
   Transport: "#14b8a6",
-};
+}; 
