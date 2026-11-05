@@ -1,3 +1,4 @@
+// Minimal inline SVG icon set (stroke icons, 24x24 grid).
 const paths: Record<string, string> = {
   logo: `<path d="M7 17 17 7M7 11l4-4M13 17l4-4" />`,
   chevrons: `<path d="m8 9 4-4 4 4M8 15l4 4 4-4" />`,
@@ -23,9 +24,12 @@ const paths: Record<string, string> = {
   "dots-h": `<circle cx="5" cy="12" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" />`,
   plus: `<path d="M12 5v14M5 12h14" />`,
   chip: `<rect x="3" y="6" width="18" height="13" rx="3" /><path d="M3 11h5M16 11h5M3 15h5M16 15h5M8 6v13M16 6v13" />`,
+  contactless: `<path d="M8.5 8.5a5 5 0 0 1 0 7M12 6a8.5 8.5 0 0 1 0 12M15.5 3.5a12 12 0 0 1 0 17" />`,
   filter: `<path d="M3 4h18l-7 9v6l-4 2v-8z" />`,
   "chevron-left": `<path d="m15 18-6-6 6-6" />`,
   "chevron-right": `<path d="m9 18 6-6-6-6" />`,
+  users: `<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>`,
+  box: `<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.27 6.96 12 12.01l8.73-5.05M12 22.08V12"/>`,
 };
 
 export function icon(name: string): string {
