@@ -1,14 +1,13 @@
 export type Status = "Success" | "Pending" | "Failed";
-export type Category = "Food" | "Subscription" | "Travel" | "Shopping" | "Utilities" | "Transport";
+export type Category = "Food Cost" | "Labor" | "Utilities" | "Rent" | "Marketing" | "Supplies";
 export type PaymentMethod = "telebirr" | "cash" | "cbe";
-export type Lang = "en" | "am" | "om";
 
 export interface Transaction {
   id: string;
   description: string;
   category: Category;
   date: Date;
-  amount: number; 
+  amount: number;
   status: Status;
 }
 
@@ -25,77 +24,76 @@ export const user = {
 };
 
 export const stats = [
-  { labelKey: "totalBalance", value: 82450, noteKey: "positiveGrowth", change: 12.4, icon: "wallet" },
-  { labelKey: "totalRevenue", value: 9820, noteKey: "monthlyIncrease", change: 8.6, icon: "trend-up" },
-  { labelKey: "totalExpenses", value: 4630, noteKey: "lowerSpending", change: -5.1, icon: "trend-down" },
-  { labelKey: "profitMargin", value: 52.9, noteKey: "healthyMargin", change: 3.2, icon: "target", isPercent: true },
+  { label: "Today's Revenue", value: 18420, note: "vs yesterday", change: 12.4, icon: "wallet" },
+  { label: "Total Orders", value: 142, note: "this week", change: 8.6, icon: "receipt" },
+  { label: "Food Cost %", value: 31.2, note: "target ≤ 30%", change: -1.8, icon: "trend-down" },
 ] as const;
 
 export const cashFlow: MonthPoint[] = [
-  { month: "Jan", revenue: 3700, expenses: 2650 },
-  { month: "Feb", revenue: 3950, expenses: 2950 },
-  { month: "Mar", revenue: 3250, expenses: 3300 },
-  { month: "Apr", revenue: 3500, expenses: 3400 },
-  { month: "May", revenue: 4000, expenses: 4500 },
-  { month: "Jun", revenue: 5620, expenses: 5780 },
-  { month: "Jul", revenue: 6200, expenses: 5900 },
-  { month: "Aug", revenue: 6650, expenses: 5100 },
-  { month: "Sep", revenue: 6650, expenses: 4600 },
-  { month: "Oct", revenue: 6650, expenses: 4400 },
-  { month: "Nov", revenue: 5450, expenses: 4100 },
-  { month: "Dec", revenue: 5400, expenses: 3500 },
+  { month: "Jan", revenue: 87000, expenses: 62500 },
+  { month: "Feb", revenue: 92500, expenses: 64800 },
+  { month: "Mar", revenue: 88000, expenses: 67200 },
+  { month: "Apr", revenue: 94500, expenses: 69100 },
+  { month: "May", revenue: 101200, expenses: 71200 },
+  { month: "Jun", revenue: 112500, expenses: 75800 },
+  { month: "Jul", revenue: 118000, expenses: 78200 },
+  { month: "Aug", revenue: 124500, expenses: 76500 },
+  { month: "Sep", revenue: 119800, expenses: 74100 },
+  { month: "Oct", revenue: 128400, expenses: 76900 },
+  { month: "Nov", revenue: 115200, expenses: 72800 },
+  { month: "Dec", revenue: 132000, expenses: 81200 },
 ];
 
 export const paymentMethods = {
   telebirr: {
     id: "telebirr" as PaymentMethod,
     name: "Telebirr",
-    balance: 12450.75,
+    balance: 28450.75,
     change: 5.2,
     account: "0912 345 678",
-    spent: 1840.5,
-    limit: 5000,
+    spent: 12480,
+    limit: 50000,
   },
   cash: {
     id: "cash" as PaymentMethod,
     name: "Cash",
-    balance: 3200,
+    balance: 8200,
     change: -2.1,
-    account: "On hand",
-    spent: 980,
-    limit: 4000,
+    account: "Drawer",
+    spent: 3150,
+    limit: 15000,
   },
   cbe: {
     id: "cbe" as PaymentMethod,
     name: "CBE",
-    balance: 45800.2,
+    balance: 186400.2,
     change: 9.4,
     account: "1000 1234 5678",
-    spent: 3120,
-    limit: 15000,
+    spent: 42800,
+    limit: 200000,
   },
 };
 
 const merchants: { description: string; category: Category; amount: number }[] = [
-  { description: "Starbucks Coffee", category: "Food", amount: 8.75 },
-  { description: "Netflix Subscription", category: "Subscription", amount: 15.99 },
-  { description: "Hotel Booking", category: "Travel", amount: 285.1 },
-  { description: "Amazon Purchase", category: "Shopping", amount: 79.99 },
-  { description: "Electricity Bill", category: "Utilities", amount: 64.2 },
-  { description: "Uber Ride", category: "Transport", amount: 18.4 },
-  { description: "Spotify Premium", category: "Subscription", amount: 10.99 },
-  { description: "Whole Foods Market", category: "Food", amount: 92.35 },
-  { description: "Airline Ticket", category: "Travel", amount: 420.0 },
-  { description: "Apple Store", category: "Shopping", amount: 129.0 },
+  { description: "Fresh Produce Supplier", category: "Food Cost", amount: 4250 },
+  { description: "Staff Payroll - Week 44", category: "Labor", amount: 18700 },
+  { description: "Electricity - Ethio Telecom", category: "Utilities", amount: 3200 },
+  { description: "Monthly Rent - Bole", category: "Rent", amount: 25000 },
+  { description: "Facebook Ads Campaign", category: "Marketing", amount: 1850 },
+  { description: "Kitchen Supplies - Restock", category: "Supplies", amount: 980 },
+  { description: "Meat & Poultry Vendor", category: "Food Cost", amount: 6750 },
+  { description: "Part-time Waiters", category: "Labor", amount: 4200 },
+  { description: "Water Bill", category: "Utilities", amount: 890 },
+  { description: "Menu Printing", category: "Marketing", amount: 450 },
 ];
 
 const statuses: Status[] = ["Success", "Success", "Pending", "Failed", "Success", "Success", "Success", "Pending"];
 
 export const transactions: Transaction[] = Array.from({ length: 50 }, (_, i) => {
   const m = merchants[i % merchants.length];
-  const date = new Date(2026, 6, 1 + Math.floor(i * 0.6));
+  const date = new Date(2026, 9, 1 + Math.floor(i * 0.7));
   return {
-    id: `TXN-2026-${String(i + 1).padStart(3, "0")}`,
+    id: `ORD-2026-${String(i + 1).padStart(3, "0")}`,
     description: m.description,
     category: m.category,
     date,
@@ -105,109 +103,45 @@ export const transactions: Transaction[] = Array.from({ length: 50 }, (_, i) => 
 });
 
 export const categoryColor: Record<Category, string> = {
-  Food: "#a855f7",
-  Subscription: "#f59e0b",
-  Travel: "#22c55e",
-  Shopping: "#3b82f6",
-  Utilities: "#ef4444",
-  Transport: "#14b8a6",
+  "Food Cost": "#8ccf6e",
+  Labor: "#7aa9e6",
+  Utilities: "#f2b035",
+  Rent: "#ec5f48",
+  Marketing: "#c58ae8",
+  Supplies: "#4fc6b0",
 };
 
-export const i18n: Record<Lang, Record<string, string>> = {
-  en: {
-    dashboard: "Dashboard",
-    analytics: "Analytics",
-    transactions: "Transactions",
-    budgets: "Budgets",
-    investments: "Investments",
-    goals: "Goals",
-    reports: "Reports",
-    settings: "Settings",
-    help: "Help & Support",
-    totalBalance: "Total Balance",
-    totalRevenue: "Total Revenue",
-    totalExpenses: "Total Expenses",
-    profitMargin: "Profit Margin",
-    positiveGrowth: "Positive growth",
-    monthlyIncrease: "Monthly increase",
-    lowerSpending: "Lower spending",
-    healthyMargin: "Healthy margin",
-    cashFlow: "Cash Flow Overview",
-    paymentMethods: "Payment Methods",
-    spendingThisMonth: "Spending this month",
-    monthlyLimit: "Monthly Limit",
-    transactionHistory: "Transaction History",
-    search: "Search",
-    filter: "Filter",
-    helpTitle: "How to use this system",
-    helpBody:
-      "As the owner you can track daily revenue and expenses, switch between Telebirr, Cash and CBE, filter transactions, set budgets and goals, and generate reports. Use the language switch to view the interface in Amharic or Afaan Oromo.",
-    settingsTitle: "Settings",
-    settingsBody:
-      "Manage your restaurant profile, notification preferences, currency display, and connected payment methods. Changes are saved automatically.",
-  },
-  am: {
-    dashboard: "ዳሽቦርድ",
-    analytics: "ትንታኔ",
-    transactions: "ግብይቶች",
-    budgets: "በጀት",
-    investments: "ኢንቨስትመንት",
-    goals: "ግቦች",
-    reports: "ሪፖርቶች",
-    settings: "ቅንብሮች",
-    help: "እገዛ እና ድጋፍ",
-    totalBalance: "ጠቅላላ ቀሪ ሂሳብ",
-    totalRevenue: "ጠቅላላ ገቢ",
-    totalExpenses: "ጠቅላላ ወጪ",
-    profitMargin: "የትርፍ ህዳግ",
-    positiveGrowth: "አዎንታዊ እድገት",
-    monthlyIncrease: "ወርሃዊ ጭማሪ",
-    lowerSpending: "ዝቅተኛ ወጪ",
-    healthyMargin: "ጤናማ ህዳግ",
-    cashFlow: "የገንዘብ ፍሰት አጠቃላይ እይታ",
-    paymentMethods: "የክፍያ ዘዴዎች",
-    spendingThisMonth: "የዚህ ወር ወጪ",
-    monthlyLimit: "ወርሃዊ ገደብ",
-    transactionHistory: "የግብይት ታሪክ",
-    search: "ፈልግ",
-    filter: "አጣራ",
-    helpTitle: "ይህን ስርዓት እንዴት መጠቀም እንደሚቻል",
-    helpBody:
-      "እንደ ባለቤት ዕለታዊ ገቢና ወጪ ማየት፣ Telebirr፣ Cash እና CBE መቀያየር፣ ግብይቶችን ማጣራት፣ በጀትና ግቦች ማስቀመጥ እና ሪፖርት ማውጣት ይችላሉ። ቋንቋን ወደ አማርኛ ወይም ኦሮምኛ መቀየር ይችላሉ።",
-    settingsTitle: "ቅንብሮች",
-    settingsBody:
-      "የምግብ ቤትዎን መገለጫ፣ ማሳወቂያዎች፣ የምንዛሬ አሳያ እና የተገናኙ የክፍያ ዘዴዎችን ያስተዳድሩ። ለውጦች በራስ-ሰር ይቀመጣሉ።",
-  },
-  om: {
-    dashboard: "Daashboordii",
-    analytics: "Xiinxala",
-    transactions: "Daldala",
-    budgets: "Baajata",
-    investments: "Investimentii",
-    goals: "Galmawwan",
-    reports: "Gabaasawwan",
-    settings: "Qindaa'ina",
-    help: "Gargaarsa",
-    totalBalance: "Balansiin Waliigalaa",
-    totalRevenue: "Galii Waliigalaa",
-    totalExpenses: "Baasii Waliigalaa",
-    profitMargin: "Bu'aa Margin",
-    positiveGrowth: "Guddina Gaarii",
-    monthlyIncrease: "Dabalata Ji'aa",
-    lowerSpending: "Baasii Gadi aanaa",
-    healthyMargin: "Margin Fayyaa",
-    cashFlow: "Ilaalcha Cash Flow",
-    paymentMethods: "Malawwan Kaffaltii",
-    spendingThisMonth: "Baasii Ji'a Kanaa",
-    monthlyLimit: "Daangaa Ji'aa",
-    transactionHistory: "Seenaa Daldalaa",
-    search: "Barbaadi",
-    filter: "Calali",
-    helpTitle: "Akkamitti sirna kana fayyadamuu dandeessan",
-    helpBody:
-      "Akka abbaa qabeenyaatti galii fi baasii guyyaa ilaaluu, Telebirr, Cash fi CBE jijjiiruu, daldala calaluu, baajataa fi galmawwan kaa'uu fi gabaasa baasuu dandeessu. Afaan gara Amaariffaa ykn Afaan Oromoo jijjiiruu ni dandeessu.",
-    settingsTitle: "Qindaa'ina",
-    settingsBody:
-      "Profaayilii mana nyaataa keessanii, beeksisa, maallaqa fi malawwan kaffaltii walqabatan bulchuu dandeessu. Jijjiiramni ofumaan ni qabama.",
-  },
-};
+// Analytics mock data
+export const topDishes = [
+  { name: "Kitfo Special", sold: 186, revenue: 37200, pct: 22 },
+  { name: "Doro Wat", sold: 142, revenue: 28400, pct: 17 },
+  { name: "Tibs Mix", sold: 128, revenue: 25600, pct: 15 },
+  { name: "Shiro", sold: 97, revenue: 14550, pct: 9 },
+  { name: "Firfir", sold: 84, revenue: 12600, pct: 7 },
+];
+
+export const peakHours = [
+  { hour: "11–12", orders: 18 },
+  { hour: "12–13", orders: 42 },
+  { hour: "13–14", orders: 38 },
+  { hour: "18–19", orders: 51 },
+  { hour: "19–20", orders: 67 },
+  { hour: "20–21", orders: 44 },
+];
+
+// Budgets
+export const budgets = [
+  { name: "Food Cost", allocated: 35000, spent: 31240, color: "#8ccf6e" },
+  { name: "Labor", allocated: 42000, spent: 38900, color: "#7aa9e6" },
+  { name: "Utilities", allocated: 8000, spent: 6450, color: "#f2b035" },
+  { name: "Marketing", allocated: 5000, spent: 3200, color: "#c58ae8" },
+  { name: "Supplies", allocated: 4000, spent: 2850, color: "#4fc6b0" },
+];
+
+// Goals
+export const goals = [
+  { title: "Monthly Revenue Target", current: 128400, target: 150000, unit: "ETB", deadline: "Nov 30" },
+  { title: "Food Cost under 30%", current: 31.2, target: 30, unit: "%", deadline: "Dec 15" },
+  { title: "Average Order Value", current: 420, target: 480, unit: "ETB", deadline: "Dec 31" },
+  { title: "Customer Reviews (4.5+)", current: 4.3, target: 4.5, unit: "★", deadline: "Ongoing" },
+];
