@@ -1,19 +1,23 @@
 import "./style.css";
 import {
+  budgets,
   cashFlow,
   categoryColor,
-  i18n,
+  goals,
   paymentMethods,
+  peakHours,
   stats,
+  topDishes,
   transactions,
   user,
-  type Lang,
   type MonthPoint,
   type PaymentMethod,
   type Status,
   type Transaction,
 } from "./data";
 import { icon } from "./icons";
+
+/* ---------- helpers ---------- */
 
 const $ = <T extends Element = HTMLElement>(sel: string, root: ParentNode = document): T => {
   const el = root.querySelector<T>(sel);
@@ -30,7 +34,10 @@ const fmtDate = (d: Date): string =>
 const escapeHtml = (s: string): string =>
   s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] as string);
 
+/* ---------- state ---------- */
+
 type Range = "Daily" | "Weekly" | "Monthly";
+type Page = "Dashboard" | "Analytics" | "Transactions" | "Budgets" | "Investments" | "Goals" | "Reports";
 
 interface State {
   page: number;
@@ -40,11 +47,8 @@ interface State {
   selected: Set<string>;
   range: Range;
   theme: "dark" | "light";
-  lang: Lang;
-  activeNav: string;
+  activeNav: Page;
   payment: PaymentMethod;
-  showHelp: boolean;
-  showSettings: boolean;
 }
 
 const state: State = {
@@ -55,23 +59,20 @@ const state: State = {
   selected: new Set(),
   range: "Monthly",
   theme: "dark",
-  lang: "en",
   activeNav: "Dashboard",
   payment: "telebirr",
-  showHelp: false,
-  showSettings: false,
 };
 
-const t = (key: string): string => i18n[state.lang][key] ?? i18n.en[key] ?? key;
+/* ---------- layout ---------- */
 
-const navItems = [
-  { label: "Dashboard", key: "dashboard", icon: "home" },
-  { label: "Analytics", key: "analytics", icon: "bars" },
-  { label: "Transactions", key: "transactions", icon: "receipt" },
-  { label: "Budgets", key: "budgets", icon: "wallet" },
-  { label: "Investments", key: "investments", icon: "trend-up" },
-  { label: "Goals", key: "goals", icon: "target" },
-  { label: "Reports", key: "reports", icon: "file" },
+const navItems: { label: Page; icon: string }[] = [
+  { label: "Dashboard", icon: "home" },
+  { label: "Analytics", icon: "bars" },
+  { label: "Transactions", icon: "receipt" },
+  { label: "Budgets", icon: "wallet" },
+  { label: "Investments", icon: "trend-up" },
+  { label: "Goals", icon: "target" },
+  { label: "Reports", icon: "file" },
 ];
 
 function renderShell(): void {
@@ -81,7 +82,7 @@ function renderShell(): void {
     <aside class="sidebar" id="sidebar">
       <div class="brand">
         <span class="brand-mark">${icon("logo")}</span>
-        <span>Fintrack</span>
+        <span>Bistro OS</span>
       </div>
 
       <button class="profile">
@@ -97,7 +98,7 @@ function renderShell(): void {
       <nav class="nav" id="nav">
         ${navItems
           .map(
-            (n) => `<a href="#" data-nav="${n.label}" class="${n.label === state.activeNav ? "active" : ""}">${icon(n.icon)}<span data-i18n="${n.key}">${t(n.key)}</span></a>`,
+            (n) => `<a href="#" data-nav="${n.label}" class="${n.label === state.activeNav ? "active" : ""}">${icon(n.icon)}<span>${n.label}</span></a>`,
           )
           .join("")}
       </nav>
@@ -105,160 +106,443 @@ function renderShell(): void {
       <div class="sidebar-bottom">
         <p class="nav-heading">Support</p>
         <nav class="nav">
-          <a href="#" id="settingsBtn">${icon("settings")}<span data-i18n="settings">${t("settings")}</span></a>
-          <a href="#" id="helpBtn">${icon("info")}<span data-i18n="help">${t("help")}</span></a>
+          <a href="#">${icon("settings")}<span>Settings</span></a>
+          <a href="#">${icon("info")}<span>Help &amp; Support</span></a>
         </nav>
-        <div id="supportPanel"></div>
+        <div class="upgrade">
+          <strong>Upgrade to Pro</strong>
+          <p>AI insights, multi-branch & advanced reports.</p>
+          <button>Upgrade Pro ${icon("arrow-right")}</button>
+        </div>
       </div>
     </aside>
 
     <main class="main">
       <header class="topbar">
         <button class="icon-btn menu-btn" id="menuBtn" aria-label="Open menu">${icon("menu")}</button>
-        <h1 data-i18n="dashboard">${t("dashboard")}</h1>
+        <h1 id="pageTitle">${state.activeNav}</h1>
         <div class="topbar-right">
           <label class="search">
             ${icon("search")}
-            <input type="text" placeholder="${t("search")}" id="globalSearch" />
+            <input type="text" placeholder="Search" id="globalSearch" />
             <kbd>⌘ K</kbd>
           </label>
           <button class="icon-btn notif" aria-label="Notifications">${icon("bell")}<span class="dot"></span></button>
-          <div class="lang-toggle" id="langToggle" role="group" aria-label="Language">
-            <button data-lang="en" class="${state.lang === "en" ? "active" : ""}">EN</button>
-            <button data-lang="am" class="${state.lang === "am" ? "active" : ""}">አማ</button>
-            <button data-lang="om" class="${state.lang === "om" ? "active" : ""}">Orm</button>
-          </div>
           <div class="theme-toggle" id="themeToggle" role="group" aria-label="Theme">
-            <button data-theme-btn="dark" class="${state.theme === "dark" ? "active" : ""}" aria-label="Dark mode">${icon("moon")}</button>
-            <button data-theme-btn="light" class="${state.theme === "light" ? "active" : ""}" aria-label="Light mode">${icon("sun")}</button>
+            <button data-theme-btn="dark" class="active" aria-label="Dark mode">${icon("moon")}</button>
+            <button data-theme-btn="light" aria-label="Light mode">${icon("sun")}</button>
           </div>
         </div>
       </header>
 
-      <div class="alert" id="alert">
-        <span>${icon("warning")} <strong>Alert:</strong> Food cost is running above target this week.</span>
-        <a href="#">See details ${icon("arrow-right")}</a>
-      </div>
-
-      <section class="grid">
-        <div class="stats">
-          ${stats
-            .map(
-              (s) => `
-            <article class="panel stat">
-              <div class="stat-head">
-                <span class="stat-icon">${icon(s.icon)}</span>
-                <span data-i18n="${s.labelKey}">${t(s.labelKey)}</span>
-                <button class="more" aria-label="More">${icon("dots-v")}</button>
-              </div>
-              <div class="stat-value" data-count="${s.value}" data-pct="${(s as any).isPercent ? "1" : "0"}">0</div>
-              <div class="stat-foot">
-                <span data-i18n="${s.noteKey}">${t(s.noteKey)}</span>
-                <span class="badge ${s.change >= 0 ? "up" : "down"}">${s.change >= 0 ? "+" : ""}${s.change}%</span>
-              </div>
-            </article>`,
-            )
-            .join("")}
-        </div>
-
-        <article class="panel chart-panel">
-          <div class="panel-head">
-            <h2 data-i18n="cashFlow">${t("cashFlow")}</h2>
-            <div class="segmented" id="rangeSeg">
-              ${(["Daily", "Weekly", "Monthly"] as Range[])
-                .map((r) => `<button data-range="${r}" class="${r === state.range ? "active" : ""}">${r}</button>`)
-                .join("")}
-            </div>
-          </div>
-          <div class="chart-wrap" id="chartWrap">
-            <svg id="chart" role="img" aria-label="Cash flow chart"></svg>
-            <div class="tooltip" id="tooltip" hidden></div>
-          </div>
-        </article>
-
-        <article class="panel cards-panel" id="paymentPanel"></article>
-      </section>
-
-      <article class="panel table-panel">
-        <div class="panel-head">
-          <h2 data-i18n="transactionHistory">${t("transactionHistory")}</h2>
-          <div class="table-tools">
-            <label class="search small">
-              ${icon("search")}
-              <input type="text" placeholder="${t("search")}" id="tableSearch" />
-            </label>
-            <div class="filter-wrap">
-              <button class="btn" id="filterBtn">${icon("filter")} <span data-i18n="filter">${t("filter")}</span></button>
-              <div class="menu" id="filterMenu" hidden>
-                ${(["All", "Success", "Pending", "Failed"] as const)
-                  .map((s) => `<button data-status="${s}" class="${s === state.statusFilter ? "active" : ""}">${s}</button>`)
-                  .join("")}
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="table-scroll">
-          <table>
-            <thead>
-              <tr>
-                <th><input type="checkbox" id="selectAll" aria-label="Select all" /></th>
-                <th>ID</th>
-                <th>Description</th>
-                <th>Category</th>
-                <th>Date</th>
-                <th>Amount</th>
-                <th>Status</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody id="tbody"></tbody>
-          </table>
-        </div>
-        <div class="table-foot">
-          <span id="showing"></span>
-          <div class="pager">
-            <button class="icon-btn" id="prev">${icon("chevron-left")}</button>
-            <span id="pageLabel"></span>
-            <button class="icon-btn" id="next">${icon("chevron-right")}</button>
-          </div>
-        </div>
-      </article>
+      <div id="pageContent"></div>
     </main>
     <div class="scrim" id="scrim"></div>
   </div>`;
 }
 
-function renderSupportPanel(): void {
-  const panel = document.querySelector("#supportPanel");
-  if (!panel) return;
-  if (state.showHelp) {
-    panel.innerHTML = `<div class="help-panel"><h3>${t("helpTitle")}</h3><p>${t("helpBody")}</p></div>`;
-  } else if (state.showSettings) {
-    panel.innerHTML = `<div class="settings-panel"><h3>${t("settingsTitle")}</h3><p>${t("settingsBody")}</p></div>`;
-  } else {
-    panel.innerHTML = "";
+/* ---------- Dashboard page ---------- */
+
+function renderDashboard(): string {
+  return `
+    <div class="alert" id="alert">
+      <span>${icon("warning")} <strong>Alert:</strong> Food cost is running 1.2% above target this week.</span>
+      <a href="#" data-goto="Budgets">Review budgets ${icon("arrow-right")}</a>
+    </div>
+
+    <section class="grid">
+      <div class="stats">
+        ${stats
+          .map(
+            (s) => `
+          <article class="panel stat">
+            <div class="stat-head">
+              <span class="stat-icon">${icon(s.icon)}</span>
+              <span>${s.label}</span>
+              <button class="more" aria-label="More">${icon("dots-v")}</button>
+            </div>
+            <div class="stat-value" data-count="${s.value}">${s.label.includes("%") ? "0%" : "ETB 0"}</div>
+            <div class="stat-foot">
+              <span>${s.note}</span>
+              <span class="badge ${s.change >= 0 ? "up" : "down"}">${s.change >= 0 ? "+" : ""}${s.change}%</span>
+            </div>
+          </article>`,
+          )
+          .join("")}
+      </div>
+
+      <article class="panel chart-panel">
+        <div class="panel-head">
+          <h2>Revenue vs Expenses</h2>
+          <div class="segmented" id="rangeSeg">
+            ${(["Daily", "Weekly", "Monthly"] as Range[])
+              .map((r) => `<button data-range="${r}" class="${r === state.range ? "active" : ""}">${r}</button>`)
+              .join("")}
+          </div>
+        </div>
+        <div class="chart-wrap" id="chartWrap">
+          <svg id="chart" role="img" aria-label="Cash flow chart"></svg>
+          <div class="tooltip" id="tooltip" hidden></div>
+        </div>
+      </article>
+
+      <article class="panel cards-panel" id="paymentPanel"></article>
+    </section>
+
+    <article class="panel table-panel">
+      <div class="panel-head">
+        <h2>Recent Transactions</h2>
+        <button class="btn" data-goto="Transactions">View all ${icon("arrow-right")}</button>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Description</th>
+              <th>Category</th>
+              <th>Date</th>
+              <th>Amount</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${transactions.slice(0, 6).map((t) => `
+              <tr>
+                <td class="mono">${t.id}</td>
+                <td>${escapeHtml(t.description)}</td>
+                <td><span class="cat"><i style="background:${categoryColor[t.category]}"></i>${t.category}</span></td>
+                <td>${fmtDate(t.date)}</td>
+                <td class="mono">${usd(Math.abs(t.amount))}</td>
+                <td><span class="status ${t.status.toLowerCase()}">${t.status}</span></td>
+              </tr>`).join("")}
+          </tbody>
+        </table>
+      </div>
+    </article>
+  `;
+}
+
+/* ---------- Analytics page ---------- */
+
+function renderAnalytics(): string {
+  return `
+    <div class="page-grid">
+      <article class="panel">
+        <div class="panel-head"><h2>Top Selling Dishes</h2></div>
+        ${topDishes.map((d) => `
+          <div class="dish-row">
+            <div class="grow">
+              <strong>${d.name}</strong>
+              <div class="dish-meta">${d.sold} sold · ${usd(d.revenue)}</div>
+              <div class="progress-bar"><i style="width:${d.pct * 3}%;background:var(--revenue)"></i></div>
+            </div>
+            <span class="badge up">${d.pct}%</span>
+          </div>`).join("")}
+      </article>
+
+      <article class="panel">
+        <div class="panel-head"><h2>Peak Hours (Orders)</h2></div>
+        <div class="peak-bars">
+          ${peakHours.map((p) => {
+            const max = Math.max(...peakHours.map((x) => x.orders));
+            const h = Math.round((p.orders / max) * 100);
+            return `<div><div class="bar${p.orders === max ? " top" : ""}" style="height:${h}%"></div><small>${p.hour}</small></div>`;
+          }).join("")}
+        </div>
+        <p class="note">Dinner service (19–20) is your strongest window. Consider staffing accordingly.</p>
+      </article>
+
+      <article class="panel">
+        <div class="panel-head"><h2>Quick Insights</h2></div>
+        <div class="insight-list">
+          <div class="report-card">
+            <h3>Average Order Value</h3>
+            <strong class="insight-value">ETB 420</strong>
+            <p>+8% vs last month</p>
+          </div>
+          <div class="report-card">
+            <h3>Table Turnover</h3>
+            <strong class="insight-value">2.4×</strong>
+            <p>Per table during dinner</p>
+          </div>
+          <div class="report-card">
+            <h3>Waste Rate</h3>
+            <strong class="insight-value bad">4.1%</strong>
+            <p>Target: under 3%</p>
+          </div>
+        </div>
+      </article>
+    </div>
+  `;
+}
+
+/* ---------- Transactions page ---------- */
+
+function renderTransactionsPage(): string {
+  return `
+    <article class="panel table-panel">
+      <div class="panel-head">
+        <h2>All Transactions</h2>
+        <div class="table-tools">
+          <label class="search small">
+            ${icon("search")}
+            <input type="text" placeholder="Search" id="tableSearch" />
+          </label>
+          <div class="filter-wrap">
+            <button class="btn" id="filterBtn">${icon("filter")} Filter</button>
+            <div class="menu" id="filterMenu" hidden>
+              ${(["All", "Success", "Pending", "Failed"] as const)
+                .map((s) => `<button data-status="${s}" class="${s === state.statusFilter ? "active" : ""}">${s}</button>`)
+                .join("")}
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th><input type="checkbox" id="selectAll" aria-label="Select all" /></th>
+              <th>Transaction ID</th>
+              <th>Description</th>
+              <th>Category</th>
+              <th>Date</th>
+              <th>Amount</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+      <div class="table-foot">
+        <span id="showing"></span>
+        <div class="pager">
+          <button class="icon-btn" id="prev" aria-label="Previous page">${icon("chevron-left")}</button>
+          <span id="pageLabel"></span>
+          <button class="icon-btn" id="next" aria-label="Next page">${icon("chevron-right")}</button>
+        </div>
+      </div>
+    </article>
+  `;
+}
+
+/* ---------- Budgets page ---------- */
+
+function renderBudgets(): string {
+  return `
+    <div class="page-grid">
+      ${budgets.map((b) => {
+        const pct = Math.min(100, Math.round((b.spent / b.allocated) * 100));
+        const over = b.spent > b.allocated;
+        return `
+          <article class="panel">
+            <div class="panel-head">
+              <h2>${b.name}</h2>
+              <span class="badge ${over ? "down" : "up"}">${pct}%</span>
+            </div>
+            <div class="budget-amount">${usd(b.spent)}</div>
+            <div class="budget-of">of ${usd(b.allocated)} allocated</div>
+            <div class="progress-bar"><i style="width:${pct}%;background:${over ? "var(--expense)" : b.color}"></i></div>
+          </article>`;
+      }).join("")}
+    </div>
+  `;
+}
+
+/* ---------- Investments page (equipment / expansion) ---------- */
+
+function renderInvestments(): string {
+  return `
+    <div class="page-grid">
+      <article class="panel">
+        <div class="panel-head"><h2>Equipment</h2></div>
+        <div class="report-card">
+          <h3>New Industrial Oven</h3>
+          <p>Planned Q1 2027 · Est. ETB 185,000</p>
+          <div class="progress-bar"><i style="width:35%;background:var(--info)"></i></div>
+          <small>35% funded from reserves</small>
+        </div>
+        <div class="report-card">
+          <h3>POS Terminal Upgrade</h3>
+          <p>3 new terminals · ETB 42,000</p>
+          <div class="progress-bar"><i style="width:80%;background:var(--revenue)"></i></div>
+          <small>Almost ready</small>
+        </div>
+      </article>
+      <article class="panel">
+        <div class="panel-head"><h2>Expansion</h2></div>
+        <div class="report-card">
+          <h3>Second Branch – CMC</h3>
+          <p>Feasibility study complete. Target open date: mid-2027.</p>
+          <strong class="projection">ETB 1.2M projected</strong>
+        </div>
+        <div class="report-card">
+          <h3>Delivery Fleet</h3>
+          <p>2 motorcycles + branded boxes</p>
+          <div class="progress-bar"><i style="width:60%;background:var(--accent)"></i></div>
+        </div>
+      </article>
+    </div>
+  `;
+}
+
+/* ---------- Goals page ---------- */
+
+function renderGoals(): string {
+  return `
+    <div class="page-grid single">
+      ${goals.map((g) => {
+        const pct = Math.min(100, Math.round((g.current / g.target) * 100));
+        return `
+          <div class="goal-card">
+            <div class="goal-top">
+              <strong>${g.title}</strong>
+              <span class="goal-due">Due ${g.deadline}</span>
+            </div>
+            <div class="goal-value">
+              ${g.unit === "%" || g.unit === "★" ? g.current : usd(g.current)}
+              <small> / ${g.unit === "%" || g.unit === "★" ? g.target + g.unit : usd(g.target)}</small>
+            </div>
+            <div class="progress-bar"><i style="width:${pct}%;background:${pct >= 90 ? "var(--revenue)" : "var(--accent)"}"></i></div>
+          </div>`;
+      }).join("")}
+    </div>
+  `;
+}
+
+/* ---------- Reports page ---------- */
+
+function renderReports(): string {
+  return `
+    <div class="page-grid">
+      <div class="report-card">
+        <h3>Daily Sales Report</h3>
+        <p>Revenue, orders, average ticket, payment mix for any day.</p>
+        <button class="btn">Generate ${icon("arrow-right")}</button>
+      </div>
+      <div class="report-card">
+        <h3>Weekly P&amp;L</h3>
+        <p>Profit &amp; loss with food cost, labor and overhead breakdown.</p>
+        <button class="btn">Generate ${icon("arrow-right")}</button>
+      </div>
+      <div class="report-card">
+        <h3>Monthly Tax Summary</h3>
+        <p>VAT, withholding and income tax ready for accountant.</p>
+        <button class="btn">Generate ${icon("arrow-right")}</button>
+      </div>
+      <div class="report-card">
+        <h3>Inventory Valuation</h3>
+        <p>Current stock value and variance vs last count.</p>
+        <button class="btn">Generate ${icon("arrow-right")}</button>
+      </div>
+      <div class="report-card">
+        <h3>Staff Hours &amp; Cost</h3>
+        <p>Hours worked, overtime and labor cost % of sales.</p>
+        <button class="btn">Generate ${icon("arrow-right")}</button>
+      </div>
+      <div class="report-card">
+        <h3>Menu Performance</h3>
+        <p>Contribution margin and popularity of every dish.</p>
+        <button class="btn">Generate ${icon("arrow-right")}</button>
+      </div>
+    </div>
+  `;
+}
+
+/* ---------- page router ---------- */
+
+function renderPage(): void {
+  const content = $("#pageContent");
+  const title = $("#pageTitle");
+  title.textContent = state.activeNav;
+
+  switch (state.activeNav) {
+    case "Dashboard":
+      content.innerHTML = renderDashboard();
+      renderPayment();
+      renderChart();
+      animateCounters();
+      break;
+    case "Analytics":
+      content.innerHTML = renderAnalytics();
+      break;
+    case "Transactions":
+      content.innerHTML = renderTransactionsPage();
+      renderTable();
+      bindTableEvents();
+      break;
+    case "Budgets":
+      content.innerHTML = renderBudgets();
+      break;
+    case "Investments":
+      content.innerHTML = renderInvestments();
+      break;
+    case "Goals":
+      content.innerHTML = renderGoals();
+      break;
+    case "Reports":
+      content.innerHTML = renderReports();
+      break;
+  }
+
+  // re-bind page-specific listeners that live inside content
+  content.querySelectorAll("[data-goto]").forEach((el) => {
+    el.addEventListener("click", (e) => {
+      e.preventDefault();
+      const page = (el as HTMLElement).dataset.goto as Page;
+      if (page) {
+        state.activeNav = page;
+        document.querySelectorAll("#nav a").forEach((n) => n.classList.toggle("active", (n as HTMLElement).dataset.nav === page));
+        renderPage();
+      }
+    });
+  });
+
+  const rangeSeg = content.querySelector("#rangeSeg");
+  if (rangeSeg) {
+    rangeSeg.addEventListener("click", (e) => {
+      const btn = (e.target as HTMLElement).closest<HTMLButtonElement>("[data-range]");
+      if (!btn) return;
+      state.range = btn.dataset.range as Range;
+      rangeSeg.querySelectorAll("button").forEach((b) => b.classList.toggle("active", b === btn));
+      renderChart();
+    });
+  }
+
+  const paymentPanel = content.querySelector("#paymentPanel");
+  if (paymentPanel) {
+    paymentPanel.addEventListener("click", (e) => {
+      const btn = (e.target as HTMLElement).closest<HTMLButtonElement>("[data-payment]");
+      if (!btn) return;
+      state.payment = btn.dataset.payment as PaymentMethod;
+      renderPayment();
+    });
   }
 }
+
+/* ---------- payment ---------- */
 
 function renderPayment(): void {
   const pm = paymentMethods[state.payment];
   const panel = document.querySelector("#paymentPanel");
   if (!panel) return;
 
-  const themes: Record<PaymentMethod, string> = {
-    telebirr: "linear-gradient(145deg, #0f3d2e 0%, #1a5c45 40%, #0d2f24 100%)",
-    cash: "linear-gradient(145deg, #2a2c2e 0%, #3a3d40 50%, #1f2123 100%)",
-    cbe: "linear-gradient(145deg, #0c2d4a 0%, #164e7a 40%, #0a2238 100%)",
+  const themes: Record<PaymentMethod, { gradient: string }> = {
+    telebirr: { gradient: "linear-gradient(145deg, #0e4a35 0%, #1f7a58 45%, #0b3626 100%)" },
+    cash: { gradient: "linear-gradient(145deg, #3a3029 0%, #5a4a3c 50%, #2a221c 100%)" },
+    cbe: { gradient: "linear-gradient(145deg, #4a1d5c 0%, #7a2d86 45%, #34123f 100%)" },
   };
 
   panel.innerHTML = `
-    <div class="panel-head"><h2 data-i18n="paymentMethods">${t("paymentMethods")}</h2></div>
+    <div class="panel-head"><h2>Payment Methods</h2></div>
     <div class="payment-switch">
       ${(["telebirr", "cash", "cbe"] as PaymentMethod[])
         .map((key) => `<button data-payment="${key}" class="${key === state.payment ? "active" : ""}">${paymentMethods[key].name}</button>`)
         .join("")}
     </div>
-    <div class="payment-visual" style="background:${themes[state.payment]}">
+    <div class="payment-visual" style="background:${themes[state.payment].gradient}">
       <div class="pv-top">
         <span class="pv-brand">${pm.name}</span>
         <span class="pv-chip">${icon("chip")}</span>
@@ -272,29 +556,31 @@ function renderPayment(): void {
         <div class="pv-change ${pm.change >= 0 ? "up" : "down"}">${pm.change >= 0 ? "+" : ""}${pm.change}%</div>
       </div>
     </div>
-    <div class="panel-head spend-head"><h3 data-i18n="spendingThisMonth">${t("spendingThisMonth")}</h3></div>
+    <div class="panel-head spend-head"><h3>Spending this month</h3></div>
     <div class="spend-value">
       <strong>${usd(pm.spent)}</strong>
       <small>of ${usd(pm.limit)} limit</small>
     </div>
     <div class="meter" id="meter"></div>
-    <div class="limit"><span data-i18n="monthlyLimit">${t("monthlyLimit")}</span>: <strong>${usd(pm.limit)}</strong></div>
+    <div class="limit">Monthly Limit: <strong>${usd(pm.limit)}</strong></div>
   `;
 
   const meter = panel.querySelector("#meter");
   if (meter) {
-    const bars = 28;
+    const bars = 30;
     const filled = Math.round((pm.spent / pm.limit) * bars);
-    meter.innerHTML = Array.from({ length: bars }, (_, i) => `<span class="${i < filled ? "on" : ""}" style="--d:${i * 18}ms"></span>`).join("");
+    meter.innerHTML = Array.from({ length: bars }, (_, i) => `<span class="${i < filled ? "on" : ""}" style="--d:${i * 20}ms"></span>`).join("");
   }
 }
+
+/* ---------- counters ---------- */
 
 function animateCounters(): void {
   document.querySelectorAll<HTMLElement>("[data-count]").forEach((el) => {
     const target = Number(el.dataset.count);
-    const isPct = el.dataset.pct === "1";
+    const isPct = el.textContent?.includes("%");
     const start = performance.now();
-    const dur = 800;
+    const dur = 900;
     const tick = (now: number): void => {
       const t = Math.min(1, (now - start) / dur);
       const eased = 1 - Math.pow(1 - t, 3);
@@ -306,21 +592,23 @@ function animateCounters(): void {
   });
 }
 
+/* ---------- chart ---------- */
+
 function seriesFor(range: Range): MonthPoint[] {
   if (range === "Monthly") return cashFlow;
   if (range === "Weekly") {
     const labels = ["W1", "W2", "W3", "W4", "W5", "W6", "W7", "W8"];
     return labels.map((month, i) => ({
       month,
-      revenue: 1100 + Math.round(Math.sin(i * 0.9) * 300 + i * 60),
-      expenses: 950 + Math.round(Math.cos(i * 0.7) * 250 + i * 30),
+      revenue: 18000 + Math.round(Math.sin(i * 0.9) * 4000 + i * 800),
+      expenses: 14000 + Math.round(Math.cos(i * 0.7) * 3000 + i * 500),
     }));
   }
   const labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
   return labels.map((month, i) => ({
     month,
-    revenue: 180 + Math.round(Math.sin(i) * 60 + 40),
-    expenses: 140 + Math.round(Math.cos(i * 1.3) * 70 + 50),
+    revenue: 2200 + Math.round(Math.sin(i) * 600 + 400),
+    expenses: 1600 + Math.round(Math.cos(i * 1.3) * 500 + 300),
   }));
 }
 
@@ -330,55 +618,62 @@ const niceMax = (v: number): number => {
 };
 
 function renderChart(): void {
-  const svg = document.querySelector("#chart") as SVGSVGElement | null;
-  const wrap = document.querySelector("#chartWrap") as HTMLElement | null;
-  const tooltip = document.querySelector("#tooltip") as HTMLElement | null;
-  if (!svg || !wrap || !tooltip) return;
+  const svgEl = document.querySelector("#chart");
+  const wrap = document.querySelector("#chartWrap");
+  const tooltip = document.querySelector("#tooltip");
+  if (!svgEl || !wrap || !tooltip) return;
 
+  const svg = svgEl as SVGSVGElement;
   const data = seriesFor(state.range);
-  const W = wrap.clientWidth;
-  const H = wrap.clientHeight;
-  const pad = { top: 14, right: 12, bottom: 28, left: 46 };
+  const W = (wrap as HTMLElement).clientWidth;
+  const H = (wrap as HTMLElement).clientHeight;
+  const pad = { top: 18, right: 16, bottom: 32, left: 52 };
   const iw = W - pad.left - pad.right;
   const ih = H - pad.top - pad.bottom;
-  const max = niceMax(Math.max(...data.flatMap((d) => [d.revenue, d.expenses])) * 1.12);
-  const ticks = 5;
-  const x = (i: number) => pad.left + (iw * i) / Math.max(data.length - 1, 1);
-  const y = (v: number) => pad.top + ih - (v / max) * ih;
 
-  const stepPath = (key: "revenue" | "expenses") =>
+  const max = niceMax(Math.max(...data.flatMap((d) => [d.revenue, d.expenses])) * 1.15);
+  const ticks = 5;
+  const x = (i: number): number => pad.left + (iw * i) / Math.max(data.length - 1, 1);
+  const y = (v: number): number => pad.top + ih - (v / max) * ih;
+
+  const stepPath = (key: "revenue" | "expenses"): string =>
     data.map((d, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(d[key]).toFixed(1)}`).join(" ");
 
   const revenuePath = stepPath("revenue");
   const expensesPath = stepPath("expenses");
   const areaPath = `${revenuePath} L${x(data.length - 1)},${pad.top + ih} L${x(0)},${pad.top + ih} Z`;
-  const fmtTick = (v: number) => (v >= 1000 ? `${(v / 1000).toFixed(1)}K` : `${v}`);
+  const fmtTick = (v: number): string => (v >= 1000 ? `${(v / 1000).toFixed(0)}K` : `${v}`);
 
   svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
   svg.innerHTML = `
     <defs>
       <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="#22c55e" stop-opacity="0.28"/>
-        <stop offset="100%" stop-color="#22c55e" stop-opacity="0"/>
+        <stop offset="0%" style="stop-color:var(--revenue)" stop-opacity="0.35"/>
+        <stop offset="55%" style="stop-color:var(--revenue)" stop-opacity="0.1"/>
+        <stop offset="100%" style="stop-color:var(--revenue)" stop-opacity="0"/>
       </linearGradient>
-      <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-        <feGaussianBlur stdDeviation="2.5" result="b"/>
-        <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+      <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+        <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+        <feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+      <filter id="glowRed" x="-20%" y="-20%" width="140%" height="140%">
+        <feGaussianBlur stdDeviation="2.5" result="coloredBlur"/>
+        <feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge>
       </filter>
     </defs>
     ${Array.from({ length: ticks + 1 }, (_, i) => {
       const v = (max / ticks) * i;
       const yy = y(v);
-      return `<line x1="${pad.left}" y1="${yy}" x2="${W - pad.right}" y2="${yy}" stroke="var(--border)" stroke-width="1" stroke-dasharray="3 4" opacity="0.5"/>
-        <text x="${pad.left - 8}" y="${yy + 3}" class="axis" text-anchor="end">${fmtTick(v)}</text>`;
+      return `<line x1="${pad.left}" y1="${yy}" x2="${W - pad.right}" y2="${yy}" stroke="var(--border)" stroke-width="1" stroke-dasharray="4 4" opacity="0.6"/>
+        <text x="${pad.left - 10}" y="${yy + 4}" class="axis" text-anchor="end">${fmtTick(v)}</text>`;
     }).join("")}
-    ${data.map((d, i) => (W < 500 && i % 2 ? "" : `<text x="${x(i)}" y="${H - 8}" class="axis" text-anchor="middle">${d.month}</text>`)).join("")}
+    ${data.map((d, i) => (W < 520 && i % 2 ? "" : `<text x="${x(i)}" y="${H - 10}" class="axis" text-anchor="middle">${d.month}</text>`)).join("")}
     <path d="${areaPath}" fill="url(#areaGrad)"/>
-    <path d="${expensesPath}" class="line-exp" fill="none"/>
-    <path d="${revenuePath}" class="line-inc" fill="none" filter="url(#glow)"/>
+    <path d="${expensesPath}" class="line-exp" fill="none" filter="url(#glowRed)"/>
+    <path d="${revenuePath}" class="line-inc" pathLength="1" fill="none" filter="url(#glow)"/>
     <line id="cursor" class="cursor" y1="${pad.top}" y2="${pad.top + ih}" visibility="hidden"/>
-    <circle id="dotInc" r="5" class="dot-inc" visibility="hidden"/>
-    <circle id="dotExp" r="4" class="dot-exp" visibility="hidden"/>
+    <circle id="dotInc" r="5.5" class="dot-inc" visibility="hidden"/>
+    <circle id="dotExp" r="4.5" class="dot-exp" visibility="hidden"/>
     <rect x="${pad.left}" y="${pad.top}" width="${iw}" height="${ih}" fill="transparent" id="hit"/>
   `;
 
@@ -386,8 +681,9 @@ function renderChart(): void {
   const dotInc = svg.querySelector("#dotInc") as SVGCircleElement;
   const dotExp = svg.querySelector("#dotExp") as SVGCircleElement;
   const hit = svg.querySelector("#hit") as SVGRectElement;
+  const tip = tooltip as HTMLElement;
 
-  const show = (i: number) => {
+  const show = (i: number): void => {
     const d = data[i];
     const cx = x(i);
     cursor.setAttribute("x1", String(cx));
@@ -397,30 +693,40 @@ function renderChart(): void {
     dotExp.setAttribute("cx", String(cx));
     dotExp.setAttribute("cy", String(y(d.expenses)));
     [cursor, dotInc, dotExp].forEach((el) => el.setAttribute("visibility", "visible"));
-    tooltip.innerHTML = `
+
+    tip.innerHTML = `
       <div class="tt-title">${d.month.toUpperCase()}</div>
       <div class="tt-row"><i class="sw inc"></i>Revenue <b>${usd(d.revenue)}</b></div>
-      <div class="tt-row"><i class="sw exp"></i>Expenses <b>${usd(d.expenses)}</b></div>`;
-    tooltip.hidden = false;
-    const tw = tooltip.offsetWidth;
-    tooltip.style.left = `${Math.max(0, cx + 14 + tw > W ? cx - tw - 14 : cx + 14)}px`;
-    tooltip.style.top = `${Math.max(6, y(Math.max(d.revenue, d.expenses)) - 36)}px`;
+      <div class="tt-row"><i class="sw exp"></i>Expenses <b>${usd(d.expenses)}</b></div>
+      <div class="tt-row" style="margin-top:8px;padding-top:6px;border-top:1px solid var(--border)">
+        <span style="color:var(--muted);font-size:11px">Net</span>
+        <b style="color:${d.revenue - d.expenses >= 0 ? "var(--revenue)" : "var(--expense)"}">${usd(d.revenue - d.expenses)}</b>
+      </div>`;
+    tip.hidden = false;
+    const tw = tip.offsetWidth;
+    tip.style.left = `${Math.max(0, cx + 16 + tw > W ? cx - tw - 16 : cx + 16)}px`;
+    tip.style.top = `${Math.max(8, y(Math.max(d.revenue, d.expenses)) - 40)}px`;
   };
 
-  const hide = () => {
+  const hide = (): void => {
     [cursor, dotInc, dotExp].forEach((el) => el.setAttribute("visibility", "hidden"));
-    tooltip.hidden = true;
+    tip.hidden = true;
   };
 
-  hit.addEventListener("pointermove", (e) => {
+  hit.addEventListener("pointermove", (e: PointerEvent) => {
     const rect = svg.getBoundingClientRect();
     const px = ((e.clientX - rect.left) / rect.width) * W;
     const i = Math.round(((px - pad.left) / iw) * (data.length - 1));
     show(Math.max(0, Math.min(data.length - 1, i)));
   });
   hit.addEventListener("pointerleave", hide);
+
   if (state.range === "Monthly") show(9);
+  else if (state.range === "Weekly") show(3);
+  else show(2);
 }
+
+/* ---------- table ---------- */
 
 function filtered(): Transaction[] {
   const q = state.query.trim().toLowerCase();
@@ -434,6 +740,7 @@ function filtered(): Transaction[] {
 function renderTable(): void {
   const tbody = document.querySelector("#tbody");
   if (!tbody) return;
+
   const rows = filtered();
   const pages = Math.max(1, Math.ceil(rows.length / state.pageSize));
   state.page = Math.min(state.page, pages);
@@ -444,16 +751,17 @@ function renderTable(): void {
     ? pageRows
         .map((t) => {
           const bg = categoryColor[t.category];
-          return `<tr class="${state.selected.has(t.id) ? "selected" : ""}">
-            <td><input type="checkbox" data-id="${t.id}" ${state.selected.has(t.id) ? "checked" : ""}/></td>
-            <td class="mono">${t.id}</td>
-            <td><span class="merchant"><span class="m-icon" style="background:${bg};color:#fff">${escapeHtml(t.description[0])}</span>${escapeHtml(t.description)}</span></td>
-            <td><span class="cat"><i style="background:${bg}"></i>${t.category}</span></td>
-            <td>${fmtDate(t.date)}</td>
-            <td class="mono">${usd(Math.abs(t.amount))}</td>
-            <td><span class="status ${t.status.toLowerCase()}">${t.status}</span></td>
-            <td><button class="icon-btn row-more">${icon("dots-h")}</button></td>
-          </tr>`;
+          return `
+      <tr class="${state.selected.has(t.id) ? "selected" : ""}">
+        <td><input type="checkbox" data-id="${t.id}" ${state.selected.has(t.id) ? "checked" : ""}/></td>
+        <td class="mono">${t.id}</td>
+        <td><span class="merchant"><span class="m-icon" style="background:${bg}">${escapeHtml(t.description[0])}</span>${escapeHtml(t.description)}</span></td>
+        <td><span class="cat"><i style="background:${bg}"></i>${t.category}</span></td>
+        <td>${fmtDate(t.date)}</td>
+        <td class="mono">${usd(Math.abs(t.amount))}</td>
+        <td><span class="status ${t.status.toLowerCase()}">${t.status}</span></td>
+        <td><button class="icon-btn row-more">${icon("dots-h")}</button></td>
+      </tr>`;
         })
         .join("")
     : `<tr><td colspan="8" class="empty">No transactions match.</td></tr>`;
@@ -462,110 +770,51 @@ function renderTable(): void {
   const pageLabel = document.querySelector("#pageLabel");
   if (showing) showing.textContent = `Showing ${pageRows.length} of ${rows.length}`;
   if (pageLabel) pageLabel.textContent = `Page ${state.page} of ${pages}`;
+
   const prev = document.querySelector("#prev") as HTMLButtonElement | null;
   const next = document.querySelector("#next") as HTMLButtonElement | null;
   if (prev) prev.disabled = state.page <= 1;
   if (next) next.disabled = state.page >= pages;
 }
 
-function applyTheme(theme: State["theme"]): void {
-  state.theme = theme;
-  document.documentElement.dataset.theme = theme;
-  document.querySelectorAll<HTMLButtonElement>("[data-theme-btn]").forEach((b) => b.classList.toggle("active", b.dataset.themeBtn === theme));
-  try { localStorage.setItem("ffii-theme", theme); } catch {}
-}
+function bindTableEvents(): void {
+  const tableSearch = document.querySelector("#tableSearch") as HTMLInputElement | null;
+  if (tableSearch) {
+    tableSearch.addEventListener("input", (e) => {
+      state.query = (e.target as HTMLInputElement).value;
+      state.page = 1;
+      renderTable();
+    });
+  }
 
-function applyLang(lang: Lang): void {
-  state.lang = lang;
-  document.querySelectorAll<HTMLButtonElement>("[data-lang]").forEach((b) => b.classList.toggle("active", b.dataset.lang === lang));
-  document.querySelectorAll("[data-i18n]").forEach((el) => {
-    const key = (el as HTMLElement).dataset.i18n!;
-    el.textContent = t(key);
-  });
-  renderSupportPanel();
-  try { localStorage.setItem("ffii-lang", lang); } catch {}
-}
+  const filterBtn = document.querySelector("#filterBtn");
+  const menu = document.querySelector("#filterMenu") as HTMLElement | null;
+  if (filterBtn && menu) {
+    filterBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      menu.hidden = !menu.hidden;
+    });
+    menu.addEventListener("click", (e) => {
+      const btn = (e.target as HTMLElement).closest<HTMLButtonElement>("[data-status]");
+      if (!btn) return;
+      state.statusFilter = btn.dataset.status as State["statusFilter"];
+      state.page = 1;
+      menu.querySelectorAll("button").forEach((b) => b.classList.toggle("active", b === btn));
+      menu.hidden = true;
+      renderTable();
+    });
+  }
 
-function bindEvents(): void {
-  $("#themeToggle").addEventListener("click", (e) => {
-    const btn = (e.target as HTMLElement).closest<HTMLButtonElement>("[data-theme-btn]");
-    if (btn) applyTheme(btn.dataset.themeBtn as State["theme"]);
-  });
-
-  $("#langToggle").addEventListener("click", (e) => {
-    const btn = (e.target as HTMLElement).closest<HTMLButtonElement>("[data-lang]");
-    if (btn) applyLang(btn.dataset.lang as Lang);
-  });
-
-  $("#rangeSeg").addEventListener("click", (e) => {
-    const btn = (e.target as HTMLElement).closest<HTMLButtonElement>("[data-range]");
-    if (!btn) return;
-    state.range = btn.dataset.range as Range;
-    document.querySelectorAll("#rangeSeg button").forEach((b) => b.classList.toggle("active", b === btn));
-    renderChart();
-  });
-
-  $("#paymentPanel").addEventListener("click", (e) => {
-    const btn = (e.target as HTMLElement).closest<HTMLButtonElement>("[data-payment]");
-    if (!btn) return;
-    state.payment = btn.dataset.payment as PaymentMethod;
-    renderPayment();
-  });
-
-  $("#nav").addEventListener("click", (e) => {
-    const a = (e.target as HTMLElement).closest<HTMLAnchorElement>("[data-nav]");
-    if (!a) return;
-    e.preventDefault();
-    state.activeNav = a.dataset.nav ?? "Dashboard";
-    document.querySelectorAll("#nav a").forEach((n) => n.classList.toggle("active", n === a));
-    document.body.classList.remove("nav-open");
-  });
-
-  $("#settingsBtn").addEventListener("click", (e) => {
-    e.preventDefault();
-    state.showSettings = !state.showSettings;
-    state.showHelp = false;
-    renderSupportPanel();
-  });
-  $("#helpBtn").addEventListener("click", (e) => {
-    e.preventDefault();
-    state.showHelp = !state.showHelp;
-    state.showSettings = false;
-    renderSupportPanel();
-  });
-
-  const onSearch = (value: string) => {
-    state.query = value;
-    state.page = 1;
-    renderTable();
-  };
-  $<HTMLInputElement>("#tableSearch").addEventListener("input", (e) => onSearch((e.target as HTMLInputElement).value));
-  $<HTMLInputElement>("#globalSearch").addEventListener("input", (e) => {
-    const v = (e.target as HTMLInputElement).value;
-    $<HTMLInputElement>("#tableSearch").value = v;
-    onSearch(v);
-  });
-
-  const menu = $("#filterMenu");
-  $("#filterBtn").addEventListener("click", (e) => {
-    e.stopPropagation();
-    menu.hidden = !menu.hidden;
-  });
-  menu.addEventListener("click", (e) => {
-    const btn = (e.target as HTMLElement).closest<HTMLButtonElement>("[data-status]");
-    if (!btn) return;
-    state.statusFilter = btn.dataset.status as State["statusFilter"];
-    state.page = 1;
-    menu.querySelectorAll("button").forEach((b) => b.classList.toggle("active", b === btn));
-    menu.hidden = true;
+  document.querySelector("#prev")?.addEventListener("click", () => {
+    state.page--;
     renderTable();
   });
-  document.addEventListener("click", () => (menu.hidden = true));
+  document.querySelector("#next")?.addEventListener("click", () => {
+    state.page++;
+    renderTable();
+  });
 
-  $("#prev").addEventListener("click", () => { state.page--; renderTable(); });
-  $("#next").addEventListener("click", () => { state.page++; renderTable(); });
-
-  $("#tbody").addEventListener("change", (e) => {
+  document.querySelector("#tbody")?.addEventListener("change", (e) => {
     const cb = e.target as HTMLInputElement;
     const id = cb.dataset.id;
     if (!id) return;
@@ -573,37 +822,72 @@ function bindEvents(): void {
     else state.selected.delete(id);
     renderTable();
   });
+}
 
-  $("#selectAll").addEventListener("change", (e) => {
-    const checked = (e.target as HTMLInputElement).checked;
-    const start = (state.page - 1) * state.pageSize;
-    filtered().slice(start, start + state.pageSize).forEach((t) => (checked ? state.selected.add(t.id) : state.selected.delete(t.id)));
-    renderTable();
+/* ---------- theme ---------- */
+
+function applyTheme(theme: State["theme"]): void {
+  state.theme = theme;
+  document.documentElement.dataset.theme = theme;
+  document.querySelectorAll<HTMLButtonElement>("[data-theme-btn]").forEach((b) => b.classList.toggle("active", b.dataset.themeBtn === theme));
+  try {
+    localStorage.setItem("bistro-theme", theme);
+  } catch {
+    /* ignore */
+  }
+}
+
+/* ---------- global events ---------- */
+
+function bindEvents(): void {
+  $("#themeToggle").addEventListener("click", (e) => {
+    const btn = (e.target as HTMLElement).closest<HTMLButtonElement>("[data-theme-btn]");
+    if (btn) applyTheme(btn.dataset.themeBtn as State["theme"]);
+  });
+
+  $("#nav").addEventListener("click", (e) => {
+    const a = (e.target as HTMLElement).closest<HTMLAnchorElement>("[data-nav]");
+    if (!a) return;
+    e.preventDefault();
+    state.activeNav = a.dataset.nav as Page;
+    document.querySelectorAll("#nav a").forEach((n) => n.classList.toggle("active", n === a));
+    document.body.classList.remove("nav-open");
+    renderPage();
   });
 
   $("#menuBtn").addEventListener("click", () => document.body.classList.add("nav-open"));
   $("#scrim").addEventListener("click", () => document.body.classList.remove("nav-open"));
 
+  document.addEventListener("keydown", (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+      e.preventDefault();
+      ($("#globalSearch") as HTMLInputElement).focus();
+    }
+    if (e.key === "Escape") document.body.classList.remove("nav-open");
+  });
+
   let resizeTimer = 0;
   window.addEventListener("resize", () => {
     clearTimeout(resizeTimer);
-    resizeTimer = window.setTimeout(renderChart, 120);
+    resizeTimer = window.setTimeout(() => {
+      if (state.activeNav === "Dashboard") renderChart();
+    }, 120);
   });
 }
 
+/* ---------- boot ---------- */
+
 function init(): void {
   renderShell();
+  let saved: string | null = null;
   try {
-    const th = localStorage.getItem("ffii-theme");
-    if (th === "light" || th === "dark") applyTheme(th);
-    const lg = localStorage.getItem("ffii-lang") as Lang | null;
-    if (lg === "en" || lg === "am" || lg === "om") applyLang(lg);
-  } catch {}
-  renderPayment();
-  renderChart();
-  renderTable();
+    saved = localStorage.getItem("bistro-theme");
+  } catch {
+    /* ignore */
+  }
+  applyTheme(saved === "light" ? "light" : "dark");
   bindEvents();
-  animateCounters();
+  renderPage();
 }
 
 init();
