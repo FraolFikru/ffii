@@ -362,7 +362,7 @@ function renderChart(): void {
         <stop offset="100%" stop-color="#22c55e" stop-opacity="0"/>
       </linearGradient>
       <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-        <feGaussianBlur stdDeviation="2" result="b"/>
+        <feGaussianBlur stdDeviation="2.5" result="b"/>
         <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
       </filter>
     </defs>
