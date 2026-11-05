@@ -1,7 +1,7 @@
 /* =========================================================
    Localization — English (source), Amharic, Afaan Oromoo.
    Keys are the English strings, so a missing entry simply
-   falls back to English instead of breaking the UI.
+   falls back to English instead of breaking the UI .
    ========================================================= */
 
 export type Lang = "en" | "am" | "om";
