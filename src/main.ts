@@ -1,12 +1,13 @@
 import "./style.css";
 import {
-  card,
   cashFlow,
   categoryColor,
+  paymentMethods,
   stats,
   transactions,
   user,
   type MonthPoint,
+  type PaymentMethod,
   type Status,
   type Transaction,
 } from "./data";
@@ -42,6 +43,7 @@ interface State {
   range: Range;
   theme: "dark" | "light";
   activeNav: string;
+  payment: PaymentMethod;
 }
 
 const state: State = {
@@ -53,6 +55,7 @@ const state: State = {
   range: "Monthly",
   theme: "dark",
   activeNav: "Dashboard",
+  payment: "telebirr",
 };
 
 /* ---------- layout ---------- */
@@ -168,36 +171,8 @@ function renderShell(): void {
           </div>
         </article>
 
-        <article class="panel cards-panel">
-          <div class="panel-head">
-            <h2>My Cards</h2>
-            <button class="btn">${icon("plus")} Add Card</button>
-          </div>
-          <div class="credit-card">
-            <div class="cc-top">${icon("chip")} ${icon("contactless")}</div>
-            <div class="cc-number">${card.number}</div>
-            <div class="cc-bottom">
-              <div><small>Card Holder Name</small><strong>${card.holder}</strong></div>
-              <div><small>Expired Date</small><strong>${card.expires}</strong></div>
-              <span class="mc"><i></i><i></i></span>
-            </div>
-          </div>
-
-          <div class="panel-head spend-head">
-            <h3>Card Spending</h3>
-            <select class="select" aria-label="Period">
-              <option>This Month</option>
-              <option>Last Month</option>
-              <option>This Year</option>
-            </select>
-          </div>
-          <div class="spend-value">
-            <strong>${usd(card.spent)}</strong>
-            <span class="trend">${icon("arrow-up-right")} +${card.change}%</span>
-            <small>vs last month</small>
-          </div>
-          <div class="meter" id="meter" aria-label="Spending vs limit"></div>
-          <div class="limit">Monthly Limit: <strong>${usd(card.limit)}</strong></div>
+        <article class="panel cards-panel" id="paymentPanel">
+          <!-- rendered by renderPayment() -->
         </article>
       </section>
 
@@ -250,6 +225,60 @@ function renderShell(): void {
   </div>`;
 }
 
+/* ---------- payment methods panel ---------- */
+
+function renderPayment(): void {
+  const pm = paymentMethods[state.payment];
+  const panel = $("#paymentPanel");
+
+  panel.innerHTML = `
+    <div class="panel-head">
+      <h2>Payment Methods</h2>
+    </div>
+
+    <div class="payment-switch" id="paymentSwitch">
+      ${(["telebirr", "cash", "cbe"] as PaymentMethod[])
+        .map(
+          (key) => `
+        <button data-payment="${key}" class="${key === state.payment ? "active" : ""}">
+          ${paymentMethods[key].name}
+        </button>`,
+        )
+        .join("")}
+    </div>
+
+    <div class="payment-card">
+      <div class="payment-top">
+        <span class="payment-name">${pm.name}</span>
+        <span class="payment-account">${pm.account}</span>
+      </div>
+      <div class="payment-balance">
+        <small>Available Balance</small>
+        <strong>${usd(pm.balance)}</strong>
+      </div>
+      <div class="payment-meta">
+        <span class="trend ${pm.change >= 0 ? "up" : "down"}">
+          ${pm.change >= 0 ? icon("arrow-up-right") : icon("trend-down")}
+          ${pm.change >= 0 ? "+" : ""}${pm.change}%
+        </span>
+        <small>vs last month</small>
+      </div>
+    </div>
+
+    <div class="panel-head spend-head">
+      <h3>Spending this month</h3>
+    </div>
+    <div class="spend-value">
+      <strong>${usd(pm.spent)}</strong>
+      <small>of ${usd(pm.limit)} limit</small>
+    </div>
+    <div class="meter" id="meter" aria-label="Spending vs limit"></div>
+    <div class="limit">Monthly Limit: <strong>${usd(pm.limit)}</strong></div>
+  `;
+
+  renderMeter();
+}
+
 /* ---------- stat counters ---------- */
 
 function animateCounters(): void {
@@ -275,14 +304,14 @@ function seriesFor(range: Range): MonthPoint[] {
     const labels = ["W1", "W2", "W3", "W4", "W5", "W6", "W7", "W8"];
     return labels.map((month, i) => ({
       month,
-      income: 1100 + Math.round(Math.sin(i * 0.9) * 300 + i * 60),
+      revenue: 1100 + Math.round(Math.sin(i * 0.9) * 300 + i * 60),
       expenses: 950 + Math.round(Math.cos(i * 0.7) * 250 + i * 30),
     }));
   }
   const labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
   return labels.map((month, i) => ({
     month,
-    income: 180 + Math.round(Math.sin(i) * 60 + 40),
+    revenue: 180 + Math.round(Math.sin(i) * 60 + 40),
     expenses: 140 + Math.round(Math.cos(i * 1.3) * 70 + 50),
   }));
 }
@@ -304,24 +333,24 @@ function renderChart(): void {
   const iw = W - pad.left - pad.right;
   const ih = H - pad.top - pad.bottom;
 
-  const max = niceMax(Math.max(...data.flatMap((d) => [d.income, d.expenses])) * 1.1);
+  const max = niceMax(Math.max(...data.flatMap((d) => [d.revenue, d.expenses])) * 1.1);
   const ticks = 5;
   const x = (i: number): number => pad.left + (iw * i) / (data.length - 1);
   const y = (v: number): number => pad.top + ih - (v / max) * ih;
 
-  const stepPath = (key: "income" | "expenses"): string =>
+  const stepPath = (key: "revenue" | "expenses"): string =>
     data.map((d, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(d[key]).toFixed(1)}`).join(" ");
 
-  const incomePath = stepPath("income");
-  const areaPath = `${incomePath} L${x(data.length - 1)},${pad.top + ih} L${x(0)},${pad.top + ih} Z`;
+  const revenuePath = stepPath("revenue");
+  const areaPath = `${revenuePath} L${x(data.length - 1)},${pad.top + ih} L${x(0)},${pad.top + ih} Z`;
   const fmtTick = (v: number): string => (v >= 1000 ? `$${(v / 1000).toFixed(1)}K` : `$${v}`);
 
   svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
   svg.innerHTML = `
     <defs>
       <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="var(--accent)" stop-opacity="0.35"/>
-        <stop offset="100%" stop-color="var(--accent)" stop-opacity="0"/>
+        <stop offset="0%" stop-color="var(--revenue)" stop-opacity="0.35"/>
+        <stop offset="100%" stop-color="var(--revenue)" stop-opacity="0"/>
       </linearGradient>
       <filter id="glow"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
     </defs>
@@ -332,7 +361,7 @@ function renderChart(): void {
     ${data.map((d, i) => (W < 520 && i % 2 ? "" : `<text x="${x(i)}" y="${H - 8}" class="axis" text-anchor="middle">${d.month}</text>`)).join("")}
     <path d="${areaPath}" fill="url(#areaGrad)"/>
     <path d="${stepPath("expenses")}" class="line-exp" fill="none"/>
-    <path d="${incomePath}" class="line-inc" fill="none" filter="url(#glow)"/>
+    <path d="${revenuePath}" class="line-inc" fill="none" filter="url(#glow)"/>
     <line id="cursor" class="cursor" y1="${pad.top}" y2="${pad.top + ih}" visibility="hidden"/>
     <circle id="dotInc" r="6" class="dot-inc" visibility="hidden"/>
     <circle id="dotExp" r="4" class="dot-exp" visibility="hidden"/>
@@ -350,7 +379,7 @@ function renderChart(): void {
     cursor.setAttribute("x1", String(cx));
     cursor.setAttribute("x2", String(cx));
     dotInc.setAttribute("cx", String(cx));
-    dotInc.setAttribute("cy", String(y(d.income)));
+    dotInc.setAttribute("cy", String(y(d.revenue)));
     dotExp.setAttribute("cx", String(cx));
     dotExp.setAttribute("cy", String(y(d.expenses)));
     [cursor, dotInc, dotExp].forEach((el) => el.setAttribute("visibility", "visible"));
@@ -358,13 +387,13 @@ function renderChart(): void {
     const label = state.range === "Monthly" ? `${fullMonth(d.month)} 2026` : d.month;
     tooltip.innerHTML = `
       <div class="tt-title">${label.toUpperCase()}</div>
-      <div class="tt-row"><i class="sw inc"></i>Total Income<b>${usd(d.income, 0)}</b></div>
+      <div class="tt-row"><i class="sw inc"></i>Total Revenue<b>${usd(d.revenue, 0)}</b></div>
       <div class="tt-row"><i class="sw exp"></i>Total Expenses<b>${usd(d.expenses, 0)}</b></div>`;
     tooltip.hidden = false;
     const tw = tooltip.offsetWidth;
     const left = Math.max(0, cx + 16 + tw > W ? cx - tw - 16 : cx + 16);
     tooltip.style.left = `${left}px`;
-    tooltip.style.top = `${Math.max(4, y(Math.max(d.income, d.expenses)) - 30)}px`;
+    tooltip.style.top = `${Math.max(4, y(Math.max(d.revenue, d.expenses)) - 30)}px`;
   };
 
   const hide = (): void => {
@@ -380,7 +409,6 @@ function renderChart(): void {
   });
   hit.addEventListener("pointerleave", hide);
 
-  // Mirror the screenshot: highlight June by default on the monthly view.
   if (state.range === "Monthly") show(5);
 }
 
@@ -391,8 +419,9 @@ const fullMonth = (m: string): string =>
 
 function renderMeter(): void {
   const meter = $("#meter");
+  const pm = paymentMethods[state.payment];
   const bars = 30;
-  const filled = Math.round((card.spent / card.limit) * bars);
+  const filled = Math.round((pm.spent / pm.limit) * bars);
   meter.innerHTML = Array.from({ length: bars }, (_, i) => `<span class="${i < filled ? "on" : ""}" style="--d:${i * 20}ms"></span>`).join("");
 }
 
@@ -479,6 +508,14 @@ function bindEvents(): void {
     state.range = btn.dataset.range as Range;
     document.querySelectorAll("#rangeSeg button").forEach((b) => b.classList.toggle("active", b === btn));
     renderChart();
+  });
+
+  // Payment method switcher
+  $("#paymentPanel").addEventListener("click", (e) => {
+    const btn = (e.target as HTMLElement).closest<HTMLButtonElement>("[data-payment]");
+    if (!btn) return;
+    state.payment = btn.dataset.payment as PaymentMethod;
+    renderPayment();
   });
 
   $("#nav").addEventListener("click", (e) => {
@@ -585,8 +622,8 @@ function init(): void {
     /* storage unavailable */
   }
   applyTheme(saved === "light" ? "light" : "dark");
+  renderPayment();
   renderChart();
-  renderMeter();
   renderTable();
   bindEvents();
   animateCounters();
