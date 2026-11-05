@@ -14,6 +14,7 @@ const paths: Record<string, string> = {
   info: `<circle cx="12" cy="12" r="9" /><path d="M12 16v-4M12 8h.01" />`,
   "arrow-right": `<path d="M5 12h14M13 6l6 6-6 6" />`,
   "arrow-up-right": `<path d="M7 17 17 7M8 7h9v9" />`,
+  "arrow-down-left": `<path d="M17 7 7 17M16 17H7V8" />`,
   menu: `<path d="M4 6h16M4 12h16M4 18h16" />`,
   search: `<circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" />`,
   bell: `<path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 0 0 3.4 0" />`,
