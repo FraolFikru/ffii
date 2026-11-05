@@ -28,6 +28,8 @@ const paths: Record<string, string> = {
   filter: `<path d="M3 4h18l-7 9v6l-4 2v-8z" />`,
   "chevron-left": `<path d="m15 18-6-6 6-6" />`,
   "chevron-right": `<path d="m9 18 6-6-6-6" />`,
+  users: `<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>`,
+  box: `<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.27 6.96 12 12.01l8.73-5.05M12 22.08V12"/>`,
 };
 
 export function icon(name: string): string {
