@@ -154,17 +154,17 @@ function renderDashboard(): string {
       <div class="stats">
         ${stats
           .map(
-            (s) => `
-          <article class="panel stat">
+            (s, i) => `
+          <article class="panel stat${i === 0 ? " glow" : ""}">
             <div class="stat-head">
               <span class="stat-icon">${icon(s.icon)}</span>
               <span>${s.label}</span>
               <button class="more" aria-label="More">${icon("dots-v")}</button>
             </div>
-            <div class="stat-value" data-count="${s.value}">${s.label.includes("%") ? "0%" : "ETB 0"}</div>
+            <div class="stat-value" data-count="${s.value}">${s.unit === "%" ? "0%" : "ETB 0"}</div>
             <div class="stat-foot">
               <span>${s.note}</span>
-              <span class="badge ${s.change >= 0 ? "up" : "down"}">${s.change >= 0 ? "+" : ""}${s.change}%</span>
+              <span class="badge ${(s.lowerIsBetter ? s.change <= 0 : s.change >= 0) ? "up" : "down"}">${s.change >= 0 ? "+" : ""}${s.change}%</span>
             </div>
           </article>`,
           )
@@ -526,6 +526,8 @@ function renderPage(): void {
 
 function renderPayment(): void {
   const pm = paymentMethods[state.payment];
+  const net = pm.moneyIn - pm.spent;
+  const inPct = Math.round((pm.moneyIn / (pm.moneyIn + pm.spent)) * 100);
   const panel = document.querySelector("#paymentPanel");
   if (!panel) return;
 
@@ -539,9 +541,10 @@ function renderPayment(): void {
     <div class="panel-head"><h2>Payment Methods</h2></div>
     <div class="payment-switch">
       ${(["telebirr", "cash", "cbe"] as PaymentMethod[])
-        .map((key) => `<button data-payment="${key}" class="${key === state.payment ? "active" : ""}">${paymentMethods[key].name}</button>`)
+        .map((key) => `<button data-payment="${key}" class="glow ${key === state.payment ? "active" : ""}">${paymentMethods[key].name}</button>`)
         .join("")}
     </div>
+    <div class="pv-wrap glow" data-method="${state.payment}">
     <div class="payment-visual" style="background:${themes[state.payment].gradient}">
       <div class="pv-top">
         <span class="pv-brand">${pm.name}</span>
@@ -556,21 +559,39 @@ function renderPayment(): void {
         <div class="pv-change ${pm.change >= 0 ? "up" : "down"}">${pm.change >= 0 ? "+" : ""}${pm.change}%</div>
       </div>
     </div>
-    <div class="panel-head spend-head"><h3>Spending this month</h3></div>
-    <div class="spend-value">
-      <strong>${usd(pm.spent)}</strong>
-      <small>of ${usd(pm.limit)} limit</small>
     </div>
-    <div class="meter" id="meter"></div>
-    <div class="limit">Monthly Limit: <strong>${usd(pm.limit)}</strong></div>
+    <div class="pm-side">
+      <div class="flow">
+        <div class="flow-head">
+          <h3>This month</h3>
+          <span class="flow-net ${net >= 0 ? "up" : "down"}">Net ${net >= 0 ? "+" : "-"}${usd(Math.abs(net))}</span>
+        </div>
+        <div class="flow-nums">
+          <div><small>Money in</small><strong class="in">${usd(pm.moneyIn)}</strong></div>
+          <div><small>Money out</small><strong class="out">${usd(pm.spent)}</strong></div>
+        </div>
+        <div class="flow-bar" aria-hidden="true">
+          <i class="in" style="width:${inPct}%"></i>
+          <i class="out" style="width:${100 - inPct}%"></i>
+        </div>
+      </div>
+      <div class="panel-head activity-head"><h3>Latest activity (ETB)</h3></div>
+      <ul class="activity">
+        ${pm.activity
+          .map(
+            (a) => `
+          <li>
+            <span class="act-icon ${a.amount >= 0 ? "in" : "out"}">${icon(a.amount >= 0 ? "arrow-down-left" : "arrow-up-right")}</span>
+            <span class="act-text"><strong>${escapeHtml(a.label)}</strong><small>${a.when}</small></span>
+            <span class="act-amount ${a.amount >= 0 ? "in" : "out"}">${a.amount >= 0 ? "+" : "-"}${Math.abs(a.amount).toLocaleString("en-US")}</span>
+          </li>`,
+          )
+          .join("")}
+      </ul>
+    </div>
   `;
 
-  const meter = panel.querySelector("#meter");
-  if (meter) {
-    const bars = 30;
-    const filled = Math.round((pm.spent / pm.limit) * bars);
-    meter.innerHTML = Array.from({ length: bars }, (_, i) => `<span class="${i < filled ? "on" : ""}" style="--d:${i * 20}ms"></span>`).join("");
-  }
+  updateGlow();
 }
 
 /* ---------- counters ---------- */
@@ -824,6 +845,46 @@ function bindTableEvents(): void {
   });
 }
 
+/* ---------- cursor glow ---------- */
+
+// Elements with the "glow" class light up as the cursor gets near them,
+// even before it touches them. CSS reads --gx / --gy (cursor position
+// relative to the element) and --gi (0 to 1 intensity).
+const pointer = { x: -9999, y: -9999 };
+const GLOW_RANGE = 220;
+
+function updateGlow(): void {
+  document.querySelectorAll<HTMLElement>(".glow").forEach((el) => {
+    const r = el.getBoundingClientRect();
+    const dx = Math.max(r.left - pointer.x, 0, pointer.x - r.right);
+    const dy = Math.max(r.top - pointer.y, 0, pointer.y - r.bottom);
+    const pad = el.tagName === "BUTTON" ? 36 : 48;
+    const gx = Math.min(Math.max(pointer.x - r.left, -pad), r.width + pad);
+    const gy = Math.min(Math.max(pointer.y - r.top, -pad), r.height + pad);
+    el.style.setProperty("--gx", `${gx}px`);
+    el.style.setProperty("--gy", `${gy}px`);
+    el.style.setProperty("--gi", String(Math.max(0, 1 - Math.hypot(dx, dy) / GLOW_RANGE)));
+  });
+}
+
+function initGlow(): void {
+  let frame = 0;
+  document.addEventListener("pointermove", (e) => {
+    pointer.x = e.clientX;
+    pointer.y = e.clientY;
+    if (frame) return;
+    frame = requestAnimationFrame(() => {
+      frame = 0;
+      updateGlow();
+    });
+  });
+  document.documentElement.addEventListener("mouseleave", () => {
+    pointer.x = -9999;
+    pointer.y = -9999;
+    updateGlow();
+  });
+}
+
 /* ---------- theme ---------- */
 
 function applyTheme(theme: State["theme"]): void {
@@ -887,6 +948,7 @@ function init(): void {
   }
   applyTheme(saved === "light" ? "light" : "dark");
   bindEvents();
+  initGlow();
   renderPage();
 }
 
