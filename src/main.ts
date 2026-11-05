@@ -231,6 +231,20 @@ function renderPayment(): void {
   const pm = paymentMethods[state.payment];
   const panel = $("#paymentPanel");
 
+  const themes: Record<PaymentMethod, { gradient: string }> = {
+    telebirr: {
+      gradient: "linear-gradient(135deg, #0f3d2e 0%, #1a5c45 45%, #0d2f24 100%)",
+    },
+    cash: {
+      gradient: "linear-gradient(135deg, #2a2c2e 0%, #3a3d40 50%, #1f2123 100%)",
+    },
+    cbe: {
+      gradient: "linear-gradient(135deg, #0c2d4a 0%, #164e7a 45%, #0a2238 100%)",
+    },
+  };
+
+  const theme = themes[state.payment];
+
   panel.innerHTML = `
     <div class="panel-head">
       <h2>Payment Methods</h2>
@@ -247,21 +261,20 @@ function renderPayment(): void {
         .join("")}
     </div>
 
-    <div class="payment-card">
-      <div class="payment-top">
-        <span class="payment-name">${pm.name}</span>
-        <span class="payment-account">${pm.account}</span>
+    <div class="payment-visual" style="background: ${theme.gradient}">
+      <div class="pv-top">
+        <span class="pv-brand">${pm.name}</span>
+        <span class="pv-chip">${icon("chip")}</span>
       </div>
-      <div class="payment-balance">
-        <small>Available Balance</small>
-        <strong>${usd(pm.balance)}</strong>
-      </div>
-      <div class="payment-meta">
-        <span class="trend ${pm.change >= 0 ? "up" : "down"}">
-          ${pm.change >= 0 ? icon("arrow-up-right") : icon("trend-down")}
+      <div class="pv-number">${pm.account}</div>
+      <div class="pv-bottom">
+        <div>
+          <small>Available Balance</small>
+          <strong>${usd(pm.balance)}</strong>
+        </div>
+        <div class="pv-change ${pm.change >= 0 ? "up" : "down"}">
           ${pm.change >= 0 ? "+" : ""}${pm.change}%
-        </span>
-        <small>vs last month</small>
+        </div>
       </div>
     </div>
 
@@ -349,10 +362,16 @@ function renderChart(): void {
   svg.innerHTML = `
     <defs>
       <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="var(--revenue)" stop-opacity="0.35"/>
-        <stop offset="100%" stop-color="var(--revenue)" stop-opacity="0"/>
+        <stop offset="0%" stop-color="#22c55e" stop-opacity="0.35"/>
+        <stop offset="100%" stop-color="#22c55e" stop-opacity="0"/>
       </linearGradient>
-      <filter id="glow"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+      <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+        <feGaussianBlur stdDeviation="3.5" result="coloredBlur"/>
+        <feMerge>
+          <feMergeNode in="coloredBlur"/>
+          <feMergeNode in="SourceGraphic"/>
+        </feMerge>
+      </filter>
     </defs>
     ${Array.from({ length: ticks + 1 }, (_, i) => {
       const v = (max / ticks) * i;
