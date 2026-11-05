@@ -8,7 +8,7 @@ export interface Transaction {
   description: string;
   category: Category;
   date: Date;
-  amount: number;
+  amount: number; 
   status: Status;
 }
 
