@@ -1,5 +1,6 @@
 export type Status = "Success" | "Pending" | "Failed";
 export type Category = "Food" | "Subscription" | "Travel" | "Shopping" | "Utilities" | "Transport";
+export type PaymentMethod = "telebirr" | "cash" | "cbe";
 
 export interface Transaction {
   id: string;
@@ -12,7 +13,7 @@ export interface Transaction {
 
 export interface MonthPoint {
   month: string;
-  income: number;
+  revenue: number;
   expenses: number;
 }
 
@@ -23,32 +24,53 @@ export const user = {
 
 export const stats = [
   { label: "Total Balance", value: 82450, note: "Positive growth", change: 12.4, icon: "wallet" },
-  { label: "Total Income", value: 9820, note: "Monthly increase", change: 8.6, icon: "trend-up" },
+  { label: "Total Revenue", value: 9820, note: "Monthly increase", change: 8.6, icon: "trend-up" },
   { label: "Total Expenses", value: 4630, note: "Lower spending", change: -5.1, icon: "trend-down" },
 ] as const;
 
 export const cashFlow: MonthPoint[] = [
-  { month: "Jan", income: 3700, expenses: 2650 },
-  { month: "Feb", income: 3950, expenses: 2950 },
-  { month: "Mar", income: 3250, expenses: 3300 },
-  { month: "Apr", income: 3500, expenses: 3400 },
-  { month: "May", income: 4000, expenses: 4500 },
-  { month: "Jun", income: 5620, expenses: 5780 },
-  { month: "Jul", income: 6200, expenses: 5900 },
-  { month: "Aug", income: 6650, expenses: 5100 },
-  { month: "Sep", income: 6650, expenses: 4600 },
-  { month: "Oct", income: 6650, expenses: 4400 },
-  { month: "Nov", income: 5450, expenses: 4100 },
-  { month: "Dec", income: 5400, expenses: 3500 },
+  { month: "Jan", revenue: 3700, expenses: 2650 },
+  { month: "Feb", revenue: 3950, expenses: 2950 },
+  { month: "Mar", revenue: 3250, expenses: 3300 },
+  { month: "Apr", revenue: 3500, expenses: 3400 },
+  { month: "May", revenue: 4000, expenses: 4500 },
+  { month: "Jun", revenue: 5620, expenses: 5780 },
+  { month: "Jul", revenue: 6200, expenses: 5900 },
+  { month: "Aug", revenue: 6650, expenses: 5100 },
+  { month: "Sep", revenue: 6650, expenses: 4600 },
+  { month: "Oct", revenue: 6650, expenses: 4400 },
+  { month: "Nov", revenue: 5450, expenses: 4100 },
+  { month: "Dec", revenue: 5400, expenses: 3500 },
 ];
 
-export const card = {
-  number: "3110 2322 2342 1123",
-  holder: "Lily Rose",
-  expires: "11/30",
-  spent: 2486.5,
-  change: 8.6,
-  limit: 4000,
+export const paymentMethods = {
+  telebirr: {
+    id: "telebirr" as PaymentMethod,
+    name: "Telebirr",
+    balance: 12450.75,
+    change: 5.2,
+    account: "0912 345 678",
+    spent: 1840.5,
+    limit: 5000,
+  },
+  cash: {
+    id: "cash" as PaymentMethod,
+    name: "Cash",
+    balance: 3200,
+    change: -2.1,
+    account: "On hand",
+    spent: 980,
+    limit: 4000,
+  },
+  cbe: {
+    id: "cbe" as PaymentMethod,
+    name: "CBE",
+    balance: 45800.2,
+    change: 9.4,
+    account: "1000 1234 5678",
+    spent: 3120,
+    limit: 15000,
+  },
 };
 
 const merchants: { description: string; category: Category; amount: number }[] = [
