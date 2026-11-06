@@ -36,6 +36,9 @@ const paths: Record<string, string> = {
   globe: `<circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" />`,
   refresh: `<path d="M3 12a9 9 0 0 1 15.5-6.3L21 8M21 3v5h-5M21 12a9 9 0 0 1-15.5 6.3L3 16M3 21v-5h5" />`,
   keyboard: `<rect x="2" y="6" width="20" height="12" rx="2" /><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10" />`,
+  pencil: `<path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z" /><path d="m13.5 6.5 4 4" />`,
+  check: `<path d="m5 12 5 5 9-10" />`,
+  x: `<path d="M6 6l12 12M18 6 6 18" />`,
 };
 
 export function icon(name: string): string {
