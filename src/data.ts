@@ -193,12 +193,54 @@ export const peakHours = [
 
 /* ---------- budgets ---------- */
 
-export const budgets: { name: Category; allocated: number; spent: number }[] = [
-  { name: "Food Cost", allocated: 35000, spent: 31240 },
-  { name: "Labor", allocated: 42000, spent: 38900 },
-  { name: "Utilities", allocated: 8000, spent: 6450 },
-  { name: "Marketing", allocated: 5000, spent: 3200 },
-  { name: "Supplies", allocated: 4000, spent: 2850 },
+export interface BudgetLine {
+  category: Category;
+  /** monthly budget target — editable in the UI (kept in memory only) */
+  allocated: number;
+  /** actual spend so far this month */
+  spent: number;
+  /** last month's actual, for comparison */
+  lastMonth: number;
+  /** fixed costs (rent) are not extrapolated: the month-end figure is the contract amount */
+  fixed?: { committed: number; paidOn: Date | null };
+}
+
+/** The current budget month, so the pace and projections always match today's date. */
+const now = new Date();
+export const budgetPeriod = {
+  year: now.getFullYear(),
+  month: now.getMonth(),
+  day: now.getDate(),
+  daysInMonth: new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate(),
+};
+const elapsed = budgetPeriod.day / budgetPeriod.daysInMonth;
+
+// pace = how fast each category is spending relative to an even spread over the month (1 = exactly on plan)
+const budgetPlan: { category: Category; allocated: number; pace: number; lastMonth: number }[] = [
+  { category: "Food Cost", allocated: 35000, pace: 1.08, lastMonth: 33900 },
+  { category: "Labor", allocated: 42000, pace: 1.04, lastMonth: 41200 },
+  { category: "Utilities", allocated: 8000, pace: 0.92, lastMonth: 7650 },
+  { category: "Marketing", allocated: 5000, pace: 0.7, lastMonth: 4100 },
+  { category: "Supplies", allocated: 4000, pace: 1.15, lastMonth: 3950 },
+];
+
+const RENT = 25000;
+const rentPaidOn = budgetPeriod.day >= 3 ? new Date(budgetPeriod.year, budgetPeriod.month, 3) : null;
+
+export const budgets: BudgetLine[] = [
+  ...budgetPlan.map((p) => ({
+    category: p.category,
+    allocated: p.allocated,
+    spent: Math.round((p.allocated * elapsed * p.pace) / 10) * 10,
+    lastMonth: p.lastMonth,
+  })),
+  {
+    category: "Rent",
+    allocated: RENT,
+    spent: rentPaidOn ? RENT : 0,
+    lastMonth: RENT,
+    fixed: { committed: RENT, paidOn: rentPaidOn },
+  },
 ];
 
 /* ---------- goals ---------- */
