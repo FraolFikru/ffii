@@ -1,5 +1,6 @@
 import "./style.css";
 import {
+  budgetPeriod,
   budgets,
   cashFlow,
   categoryColor,
@@ -11,6 +12,8 @@ import {
   topDishes,
   transactions,
   user,
+  type BudgetLine,
+  type Category,
   type PaymentMethod,
   type Status,
   type Transaction,
@@ -33,6 +36,7 @@ const escapeHtml = (s: string): string =>
 /* ---------- settings (persisted on this device) ---------- */
 
 type Range = "Daily" | "Weekly" | "Monthly";
+type BudgetSort = "worst" | "largest" | "az";
 type ThemePref = "dark" | "light" | "system";
 type CurrencyStyle = "code" | "birr";
 type Page =
@@ -115,6 +119,10 @@ interface State {
   range: Range;
   activeNav: Page;
   payment: PaymentMethod;
+  budgetSort: BudgetSort;
+  editingBudget: Category | null;
+  budgetError: string;
+  lastBudgetEdit: { category: Category; previous: number } | null;
 }
 
 const state: State = {
@@ -126,6 +134,10 @@ const state: State = {
   range: settings.defaultRange,
   activeNav: "Dashboard",
   payment: settings.defaultPayment,
+  budgetSort: "worst",
+  editingBudget: null,
+  budgetError: "",
+  lastBudgetEdit: null,
 };
 
 /* ---------- localization & formatting ---------- */
@@ -455,28 +467,328 @@ function renderTransactionsPage(): string {
 
 /* ---------- Budgets ---------- */
 
-function renderBudgets(): string {
+type BudgetStatus = "over" | "risk" | "ok";
+
+interface BudgetView {
+  line: BudgetLine;
+  projected: number; // month-end estimate at the current spend rate
+  variance: number; // projected − budget (positive = over)
+  variancePct: number;
+  plannedToDate: number; // what an even spread of the budget would have spent by today
+  pacePct: number; // how far spend is ahead (+) or behind (−) that plan
+  usedPct: number;
+  planPct: number; // share of the month elapsed
+  vsLastPct: number; // projected vs last month's actual
+  status: BudgetStatus;
+}
+
+const BUDGET_MAX = 10_000_000;
+const STATUS_RANK: Record<BudgetStatus, number> = { over: 0, risk: 1, ok: 2 };
+const STATUS_LABEL: Record<BudgetStatus, string> = { over: "Over budget", risk: "At risk", ok: "On track" };
+const STATUS_BADGE: Record<BudgetStatus, string> = { over: "down", risk: "warn", ok: "up" };
+
+const budgetAdvice: Record<Category, string> = {
+  "Food Cost": "Review produce and meat purchases this week.",
+  Labor: "Check overtime and shift cover before next week's rota.",
+  Utilities: "Check for equipment left running after closing.",
+  Marketing: "Pause the lowest-performing ad campaign.",
+  Supplies: "Delay non-essential restocking until next month.",
+  Rent: "Rent is fixed. Plan the difference into next month's budget.",
+};
+
+const pct = (n: number): string => `${Math.round(n)}%`;
+const signedMoney = (n: number): string => `${n > 0 ? "+" : n < 0 ? "−" : ""}${money(Math.abs(n))}`;
+
+function budgetView(line: BudgetLine): BudgetView {
+  const frac = budgetPeriod.day / budgetPeriod.daysInMonth;
+  const projected = line.fixed ? line.fixed.committed : Math.round(line.spent / frac / 10) * 10;
+  const plannedToDate = line.fixed ? line.allocated : line.allocated * frac;
+  const variance = projected - line.allocated;
+  const usedPct = (line.spent / line.allocated) * 100;
+
+  let status: BudgetStatus = "ok";
+  if (line.spent > line.allocated) status = "over";
+  else if (variance > 0 || (!line.fixed && usedPct >= settings.budgetWarn)) status = "risk";
+
+  return {
+    line,
+    projected,
+    variance,
+    variancePct: (variance / line.allocated) * 100,
+    plannedToDate,
+    pacePct: line.fixed ? 0 : (line.spent / plannedToDate - 1) * 100,
+    usedPct,
+    planPct: frac * 100,
+    vsLastPct: ((projected - line.lastMonth) / line.lastMonth) * 100,
+    status,
+  };
+}
+
+function sortedBudgetViews(): BudgetView[] {
+  const views = budgets.map(budgetView);
+  const byWorst = (a: BudgetView, b: BudgetView): number =>
+    STATUS_RANK[a.status] - STATUS_RANK[b.status] || b.variance - a.variance;
+  if (state.budgetSort === "largest") return views.sort((a, b) => b.line.allocated - a.line.allocated);
+  if (state.budgetSort === "az") return views.sort((a, b) => t(a.line.category).localeCompare(t(b.line.category), settings.lang));
+  return views.sort(byWorst);
+}
+
+function renderBudgetCallout(views: BudgetView[]): string {
+  const worst = [...views].sort((a, b) => STATUS_RANK[a.status] - STATUS_RANK[b.status] || b.variance - a.variance)[0];
+
+  if (!worst || worst.status === "ok") {
+    const under = views.reduce((s, v) => s + v.variance, 0);
+    return `
+      <section class="panel callout ok" aria-labelledby="calloutTitle">
+        <div class="callout-icon">${icon("check")}</div>
+        <div class="callout-body">
+          <p class="callout-kicker" id="calloutTitle">${t("All budgets on track")}</p>
+          <p class="callout-headline">${t("Projected to finish {x} under budget this month.", { x: money(Math.abs(under)) })}</p>
+        </div>
+      </section>`;
+  }
+
+  const name = t(worst.line.category);
+  const headline =
+    worst.status === "over"
+      ? t("{x} is already {y} over budget.", { x: name, y: money(worst.line.spent - worst.line.allocated) })
+      : t("{x} is on pace to finish {y} over budget ({z}).", { x: name, y: money(worst.variance), z: signed(worst.variancePct) });
+  const pace =
+    worst.pacePct > 0.5 ? `<p>${t("Spending is {x} ahead of plan for day {d}.", { x: pct(worst.pacePct), d: budgetPeriod.day })}</p>` : "";
+
   return `
-    <div class="page-grid">
-      ${budgets
-        .map((b) => {
-          const raw = (b.spent / b.allocated) * 100;
-          const level = raw > 100 ? "down" : raw >= settings.budgetWarn ? "warn" : "up";
-          const bar = level === "down" ? "var(--expense)" : level === "warn" ? "var(--warn)" : categoryColor[b.name];
-          return `
-          <article class="panel">
-            <div class="panel-head">
-              <h2>${t(b.name)}</h2>
-              <span class="badge ${level}">${Math.round(raw)}%</span>
-            </div>
-            <div class="budget-amount">${money(b.spent)}</div>
-            <div class="budget-of">${t("of {x} allocated", { x: money(b.allocated) })}</div>
-            <div class="progress-bar"><i style="width:${Math.min(100, Math.round(raw))}%;background:${bar}"></i></div>
-          </article>`;
-        })
-        .join("")}
+    <section class="panel callout ${worst.status}" aria-labelledby="calloutTitle">
+      <div class="callout-icon">${icon("warning")}</div>
+      <div class="callout-body">
+        <div class="callout-top">
+          <p class="callout-kicker" id="calloutTitle">${t("Biggest problem")}</p>
+          <span class="badge ${STATUS_BADGE[worst.status]}">${t(STATUS_LABEL[worst.status])}</span>
+        </div>
+        <p class="callout-headline">${escapeHtml(headline)}</p>
+        ${pace}
+        <p><strong>${t("Next step:")}</strong> ${t(budgetAdvice[worst.line.category])}</p>
+        <div class="callout-actions">
+          <button class="btn btn-primary" data-budget-review="${worst.line.category}">
+            ${t("Review {x} transactions", { x: name })} ${icon("arrow-right")}
+          </button>
+          <button class="btn" data-budget-edit="${worst.line.category}">${icon("pencil")} ${t("Adjust budget")}</button>
+        </div>
+      </div>
+    </section>`;
+}
+
+function renderBudgetKpis(views: BudgetView[]): string {
+  const sum = (f: (v: BudgetView) => number): number => views.reduce((s, v) => s + f(v), 0);
+  const total = sum((v) => v.line.allocated);
+  const spent = sum((v) => v.line.spent);
+  const planned = sum((v) => v.plannedToDate);
+  const projected = sum((v) => v.projected);
+  const lastMonth = sum((v) => v.line.lastMonth);
+  const over = views.filter((v) => v.status === "over").length;
+  const risk = views.filter((v) => v.status === "risk").length;
+  const gap = projected - total;
+  const paceDelta = (spent / planned - 1) * 100;
+
+  return `
+    <section class="panel kpi-strip" aria-label="${t("Budgets")}">
+      <div class="kpi">
+        <span class="kpi-label">${t("Total budget")}</span>
+        <strong class="kpi-value">${money(total)}</strong>
+        <span class="kpi-note">${t("Last month: {x}", { x: money(lastMonth) })}</span>
+      </div>
+      <div class="kpi">
+        <span class="kpi-label">${t("Spent so far")}</span>
+        <strong class="kpi-value">${money(spent)}</strong>
+        <span class="kpi-note">${t("Plan by today: {x}", { x: money(Math.round(planned)) })}
+          <span class="badge ${paceDelta > 0.5 ? "warn" : "up"}">${signed(paceDelta)}</span></span>
+      </div>
+      <div class="kpi">
+        <span class="kpi-label">${t("Projected month-end")}</span>
+        <strong class="kpi-value">${money(projected)}</strong>
+        <span class="kpi-note"><span class="badge ${gap > 0 ? "down" : "up"}">${
+          gap > 0 ? t("{x} over", { x: money(gap) }) : t("{x} under", { x: money(-gap) })
+        }</span></span>
+      </div>
+      <div class="kpi">
+        <span class="kpi-label">${t("Needs attention")}</span>
+        <strong class="kpi-value">${t("{x} of {y} categories", { x: over + risk, y: views.length })}</strong>
+        <span class="kpi-note">${t("{x} over · {y} at risk", { x: over, y: risk })}</span>
+      </div>
+    </section>`;
+}
+
+function renderBudgetEditor(v: BudgetView): string {
+  const cat = v.line.category;
+  const suggestion = Math.ceil(v.projected / 500) * 500;
+  const err = state.budgetError;
+  return `
+    <div class="budget-editor" id="editor-${slug(cat)}" role="group" aria-label="${t("Edit budget for {x}", { x: t(cat) })}">
+      <label class="budget-input">
+        <span>ETB</span>
+        <input type="text" inputmode="numeric" autocomplete="off" id="budgetInput" data-budget-input="${cat}"
+          value="${v.line.allocated.toLocaleString("en-US")}"
+          aria-label="${t("Budget amount for {x}", { x: t(cat) })}"
+          aria-invalid="${err ? "true" : "false"}" aria-describedby="budgetErr" />
+      </label>
+      ${!v.line.fixed && suggestion !== v.line.allocated
+        ? `<button class="btn" data-budget-match="${suggestion}">${t("Match projection ({x})", { x: money(suggestion) })}</button>`
+        : ""}
+      <div class="editor-actions">
+        <button class="btn" data-budget-cancel>${icon("x")} ${t("Cancel")}</button>
+        <button class="btn btn-primary" data-budget-save="${cat}">${icon("check")} ${t("Save")}</button>
+      </div>
+      <p class="field-error" id="budgetErr" role="alert">${err ? t(err) : ""}</p>
+    </div>`;
+}
+
+const slug = (s: string): string => s.toLowerCase().replace(/[^a-z]+/g, "-");
+
+function renderBudgetRow(v: BudgetView): string {
+  const cat = v.line.category;
+  const editing = state.editingBudget === cat;
+  const fill = Math.min(100, v.usedPct);
+  const fixed = v.line.fixed;
+  const meta = fixed
+    ? `<span class="tag">${t("Fixed")}</span> ${fixed.paidOn ? t("Paid {x}", { x: fmtShort(fixed.paidOn) }) : t("Due this month")}`
+    : t("{x} used · plan {y}", { x: pct(v.usedPct), y: pct(v.planPct) });
+  const varClass = v.variance > 0 ? STATUS_BADGE[v.status === "ok" ? "risk" : v.status] : "up";
+
+  return `
+    <li class="budget-line ${v.status}${editing ? " editing" : ""}">
+      <div class="c-name">
+        <i class="dot" style="background:${categoryColor[cat]}"></i>
+        <strong>${t(cat)}</strong>
+        <span class="badge ${STATUS_BADGE[v.status]}">${t(STATUS_LABEL[v.status])}</span>
+      </div>
+      <div class="c-track">
+        <div class="budget-track">
+          <div class="progress-bar"><i style="width:${fill}%"></i></div>
+          ${fixed ? "" : `<span class="pace-mark" style="left:${v.planPct}%" title="${t("Today's planned spend")}"></span>`}
+        </div>
+        <small>${meta}</small>
+      </div>
+      <div class="c-budget num"><span class="cell-label">${t("Budget")}</span>${money(v.line.allocated)}</div>
+      <div class="c-spent num"><span class="cell-label">${t("Spent")}</span>${money(v.line.spent)}</div>
+      <div class="c-proj num">
+        <span class="cell-label">${t("Projected")}</span>${money(v.projected)}
+        <small class="${v.vsLastPct > 0.5 ? "neg" : "pos"}">${t("vs last month {x}", { x: signed(v.vsLastPct) })}</small>
+      </div>
+      <div class="c-var num">
+        <span class="cell-label">${t("Variance")}</span>
+        <span class="var-amt ${varClass}">${signedMoney(v.variance)}</span>
+        <small class="${varClass}">${signed(v.variancePct)}</small>
+      </div>
+      <div class="c-act">
+        <button class="icon-btn" data-budget-edit="${cat}" aria-expanded="${editing}" aria-controls="editor-${slug(cat)}"
+          aria-label="${t("Edit budget for {x}", { x: t(cat) })}" title="${t("Edit")}">${icon("pencil")}</button>
+      </div>
+      ${editing ? renderBudgetEditor(v) : ""}
+    </li>`;
+}
+
+function renderBudgets(): string {
+  const views = sortedBudgetViews();
+  const L = settings.lang;
+  const daysLeft = budgetPeriod.daysInMonth - budgetPeriod.day;
+  const sortOpts: [BudgetSort, string][] = [
+    ["worst", "Worst first"],
+    ["largest", "Largest"],
+    ["az", "A–Z"],
+  ];
+  const undo = state.lastBudgetEdit;
+
+  return `
+    <div class="period-line">
+      <strong>${monthShort(L)[budgetPeriod.month]} ${budgetPeriod.year}</strong>
+      <span>${t("Day {d} of {n}", { d: budgetPeriod.day, n: budgetPeriod.daysInMonth })}</span>
+      <span>${t("{x} days left", { x: daysLeft })}</span>
     </div>
+
+    ${renderBudgetCallout(views)}
+    ${renderBudgetKpis(views)}
+
+    <article class="panel">
+      <div class="panel-head">
+        <h2>${t("By category")}</h2>
+        <div class="segmented" role="group" aria-label="${t("Sort")}">
+          ${sortOpts
+            .map(([k, label]) => `<button data-budget-sort="${k}" class="${state.budgetSort === k ? "active" : ""}" aria-pressed="${state.budgetSort === k}">${t(label)}</button>`)
+            .join("")}
+        </div>
+      </div>
+
+      <div class="notice-row">
+        <p class="notice" id="budgetNotice" aria-live="polite"></p>
+        ${undo ? `<button class="btn" data-budget-undo>${t("Undo")}</button>` : ""}
+      </div>
+
+      <div class="budget-head" aria-hidden="true">
+        <span>${t("Category")}</span><span></span>
+        <span class="num">${t("Budget")}</span><span class="num">${t("Spent")}</span>
+        <span class="num">${t("Projected")}</span><span class="num">${t("Variance")}</span><span></span>
+      </div>
+      <ul class="budget-list">${views.map(renderBudgetRow).join("")}</ul>
+      <p class="fine-print">${t("Budget changes are kept until you reload the page.")}</p>
+    </article>
   `;
+}
+
+/** Re-render the Budgets screen, then put focus somewhere sensible and announce changes. */
+function refreshBudgets(focus?: string, announce?: string): void {
+  if (state.activeNav !== "Budgets") return;
+  $("#pageContent").innerHTML = renderBudgets();
+  if (focus) {
+    const el = document.querySelector<HTMLElement>(focus);
+    el?.focus();
+    if (el instanceof HTMLInputElement) el.select();
+  }
+  if (announce) requestAnimationFrame(() => {
+    const n = document.querySelector("#budgetNotice");
+    if (n) n.textContent = announce;
+  });
+}
+
+function startBudgetEdit(cat: Category): void {
+  state.editingBudget = state.editingBudget === cat ? null : cat;
+  state.budgetError = "";
+  refreshBudgets(state.editingBudget ? "#budgetInput" : `[data-budget-edit="${cat}"]`);
+}
+
+function cancelBudgetEdit(): void {
+  const cat = state.editingBudget;
+  state.editingBudget = null;
+  state.budgetError = "";
+  refreshBudgets(cat ? `.c-act [data-budget-edit="${cat}"]` : undefined);
+}
+
+function saveBudget(cat: Category): void {
+  const input = document.querySelector<HTMLInputElement>("#budgetInput");
+  const value = Number((input?.value ?? "").replace(/[^\d.]/g, ""));
+  if (!Number.isFinite(value) || value < 1 || value > BUDGET_MAX) {
+    state.budgetError = "Enter an amount between 1 and 10,000,000.";
+    const err = document.querySelector("#budgetErr");
+    if (err) err.textContent = t(state.budgetError);
+    input?.setAttribute("aria-invalid", "true");
+    input?.focus();
+    return;
+  }
+  const line = budgets.find((b) => b.category === cat);
+  if (!line) return;
+  const rounded = Math.round(value);
+  state.lastBudgetEdit = rounded !== line.allocated ? { category: cat, previous: line.allocated } : state.lastBudgetEdit;
+  line.allocated = rounded;
+  state.editingBudget = null;
+  state.budgetError = "";
+  refreshBudgets(`.c-act [data-budget-edit="${cat}"]`, t("{x} budget saved: {y}", { x: t(cat), y: money(rounded) }));
+}
+
+function undoBudget(): void {
+  const last = state.lastBudgetEdit;
+  if (!last) return;
+  const line = budgets.find((b) => b.category === last.category);
+  if (line) line.allocated = last.previous;
+  state.lastBudgetEdit = null;
+  refreshBudgets(`.c-act [data-budget-edit="${last.category}"]`, t("{x} budget saved: {y}", { x: t(last.category), y: money(last.previous) }));
 }
 
 /* ---------- Investments ---------- */
@@ -659,7 +971,7 @@ const helpSteps: { icon: string; title: string; body: string }[] = [
   {
     icon: "target",
     title: "Keep costs inside budget",
-    body: "Budgets shows spending per category. A bar turns orange when it passes your warning level (set in Settings) and red when it goes over budget. Aim to keep food cost under 30% of sales.",
+    body: "Budgets ranks categories worst first and projects month-end spend from today's pace. Orange means on pace to go over (or past your warning level in Settings); red means already over. Tap the pencil to change a budget.",
   },
   {
     icon: "file",
@@ -745,6 +1057,8 @@ function renderPage(): void {
 
 function go(page: Page): void {
   state.activeNav = page;
+  state.editingBudget = null;
+  state.budgetError = "";
   document.querySelectorAll<HTMLElement>("[data-nav]").forEach((a) => a.classList.toggle("active", a.dataset.nav === page));
   document.body.classList.remove("nav-open");
   renderPage();
@@ -1188,6 +1502,35 @@ function onClick(e: MouseEvent): void {
     return setSetting(key, (key === "budgetWarn" ? Number(raw) : raw) as never);
   }
 
+  const bEdit = hit("[data-budget-edit]");
+  if (bEdit) return startBudgetEdit(bEdit.dataset.budgetEdit as Category);
+  const bSave = hit("[data-budget-save]");
+  if (bSave) return saveBudget(bSave.dataset.budgetSave as Category);
+  if (hit("[data-budget-cancel]")) return cancelBudgetEdit();
+  if (hit("[data-budget-undo]")) return undoBudget();
+  const bMatch = hit("[data-budget-match]");
+  if (bMatch) {
+    const input = document.querySelector<HTMLInputElement>("#budgetInput");
+    if (input) {
+      input.value = Number(bMatch.dataset.budgetMatch).toLocaleString("en-US");
+      input.focus();
+    }
+    return;
+  }
+  const bSort = hit("[data-budget-sort]");
+  if (bSort) {
+    state.budgetSort = bSort.dataset.budgetSort as BudgetSort;
+    return refreshBudgets(`[data-budget-sort="${state.budgetSort}"]`);
+  }
+  const bReview = hit("[data-budget-review]");
+  if (bReview) {
+    state.query = t(bReview.dataset.budgetReview as Category);
+    state.statusFilter = "All";
+    state.page = 1;
+    go("Transactions");
+    return;
+  }
+
   const rangeBtn = hit("[data-range]");
   if (rangeBtn) {
     state.range = rangeBtn.dataset.range as Range;
@@ -1243,6 +1586,13 @@ function onChange(e: Event): void {
 
 function onInput(e: Event): void {
   const el = e.target as HTMLInputElement;
+  if (el.dataset.budgetInput && state.budgetError) {
+    state.budgetError = "";
+    el.setAttribute("aria-invalid", "false");
+    const err = document.querySelector("#budgetErr");
+    if (err) err.textContent = "";
+    return;
+  }
   if (el.id !== "tableSearch") return;
   state.query = el.value;
   state.page = 1;
@@ -1259,6 +1609,14 @@ function onKeydown(e: KeyboardEvent): void {
       document.querySelector<HTMLInputElement>("#tableSearch")?.focus();
     }
     return;
+  }
+  const target = e.target as HTMLElement;
+  if (target.dataset?.budgetInput) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      return saveBudget(target.dataset.budgetInput as Category);
+    }
+    if (e.key === "Escape") return cancelBudgetEdit();
   }
   if (e.key === "Escape") {
     document.body.classList.remove("nav-open");
